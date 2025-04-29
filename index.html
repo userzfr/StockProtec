@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestion des Stocks - Protection Civile de la Loire</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <style>
+    .expiré {
+      background-color: #ffe5cc !important;
+    }
+    .alerte {
+      background-color: #ffcccc !important;
+    }
+    .critique {
+      background-color: red !important;
+      color: white !important;
+      animation: clignoter 1s infinite;
+    }
+    @keyframes clignoter {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    .notification {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background-color: #ffc;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 9999;
+    }
+    footer {
+      text-align: center;
+      margin-top: 50px;
+      font-size: 0.9rem;
+      color: #777;
+    }
+  </style>
+</head>
+<body class="p-4">
+  <div class="container">
+    <h1 class="mb-4">🛠️ Gestion des Stocks - Protection Civile 42</h1>
+
+    <div id="notifBox" class="notification" style="display:none;"></div>
+
+    <div class="mb-3">
+      <button class="btn btn-success" onclick="importCSV()">📥 Importer depuis Excel</button>
+      <button class="btn btn-primary" onclick="exportCSV()">📤 Exporter vers Excel</button>
+      <button class="btn btn-warning" onclick="ajouterProduit()">➕ Ajouter Produit</button>
+    </div>
+
+    <input type="text" class="form-control mb-3" id="scanInput" placeholder="Scanner un code-barres..." oninput="chercherParCode(this.value)">
+
+    <table class="table table-bordered" id="stockTable">
+      <thead class="table-dark">
+        <tr>
+          <th>Code-barres</th>
+          <th>Nom</th>
+          <th>Lot</th>
+          <th>Date Péremption</th>
+          <th>Date Contrôle</th>
+          <th>Quantité</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Lignes dynamiques -->
+      </tbody>
+    </table>
+
+    <footer>
+      ❤️ Fait avec amour par Mathieu M
+    </footer>
+  </div>
+
+  <script>
+    let stock = JSON.parse(localStorage.getItem("stock_data") || "[]");
+
+    window.onload = () => {
+      rafraichirTableau();
+      setTimeout(() => afficherAlertes(), 500);
+    };
+
+    function afficherNotification(msg) {
+      const box = document.getElementById("notifBox");
+      box.innerText = msg;
+      box.style.display = "block";
+      setTimeout(() => box.style.display = "none", 4000);
+    }
+
+    function afficherAlertes() {
+      const now = new Date();
+      const périmés = stock.filter(p => p.peremption && new Date(p.peremption) < now).length;
+      const bientôt = stock.filter(p => p.peremption && daysBetween(now, new Date(p.peremption)) <= 30 && daysBetween(now, new Date(p.peremption)) >= 0).length;
+      const àContrôler = stock.filter(p => !p.controle || daysBetween(new Date(p.controle), now) > 30).length;
+      if (périmés + bientôt + àContrôler > 0) {
+        afficherNotification(`${périmés} périmé(s), ${bientôt} expirant bientôt, ${àContrôler} à contrôler`);
+      }
+    }
+
+    function enregistrerStock() {
+      localStorage.setItem("stock_data", JSON.stringify(stock));
+    }
+
+    function ajouterProduit() {
+      const code = prompt("Code-barres unique :");
+      const nom = prompt("Nom du produit :");
+      const lot = prompt("Numéro de lot :");
+      const peremption = prompt("Date de péremption (YYYY-MM-DD) ou vide :");
+      const quantite = parseInt(prompt("Quantité :")) || 0;
+      const controle = new Date().toISOString().split("T")[0];
+
+      const existant = stock.find(p => p.code === code);
+      if (existant) {
+        existant.quantite += quantite;
+        existant.controle = controle;
+        afficherNotification("Stock mis à jour (quantité + contrôle). Code déjà existant.");
+      } else {
+        stock.push({ code, nom, lot, peremption, controle, quantite });
+      }
+      enregistrerStock();
+      rafraichirTableau();
+    }
+
+    function modifierProduit(index) {
+      const produit = stock[index];
+      const quantite = parseInt(prompt("Nouvelle quantité :", produit.quantite)) || 0;
+      const controle = new Date().toISOString().split("T")[0];
+      produit.quantite = quantite;
+      produit.controle = controle;
+      enregistrerStock();
+      rafraichirTableau();
+    }
+
+    function controlerProduit(index) {
+      const produit = stock[index];
+      const controle = new Date().toISOString().split("T")[0];
+      produit.controle = controle;
+      enregistrerStock();
+      rafraichirTableau();
+      afficherNotification("Date de contrôle mise à jour.");
+    }
+
+    function rafraichirTableau() {
+      const tbody = document.querySelector("#stockTable tbody");
+      tbody.innerHTML = "";
+      const now = new Date();
+
+      stock.forEach((item, index) => {
+        const tr = document.createElement("tr");
+        let className = "";
+
+        const datePeremption = item.peremption ? new Date(item.peremption) : null;
+        const dateControle = item.controle ? new Date(item.controle) : null;
+
+        if (!dateControle || daysBetween(dateControle, now) > 30) className = "critique";
+        else if (datePeremption && datePeremption < now) className = "critique";
+        else if (datePeremption && daysBetween(now, datePeremption) < 30) className = "expiré";
+        else if (item.quantite <= 1) className = "alerte";
+
+        tr.className = className;
+        tr.id = `row-${item.code}`;
+
+        tr.innerHTML = `
+          <td>${item.code}</td>
+          <td>${item.nom}</td>
+          <td>${item.lot}</td>
+          <td>${item.peremption || '-'}</td>
+          <td>${item.controle || '-'}</td>
+          <td>${item.quantite}</td>
+          <td>
+            <button class="btn btn-sm btn-secondary me-1" onclick="modifierProduit(${index})">✏️ Modifier</button>
+            <button class="btn btn-sm btn-info me-1" onclick="controlerProduit(${index})">🕵️ Contrôler</button>
+            <button class="btn btn-sm btn-danger" onclick="supprimer(${index})">🗑️</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function chercherParCode(code) {
+      const ligne = document.getElementById(`row-${code}`);
+      if (ligne) {
+        ligne.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        ligne.classList.add("table-warning");
+        setTimeout(() => ligne.classList.remove("table-warning"), 2000);
+      }
+    }
+
+    function supprimer(index) {
+      if (confirm("Supprimer ce produit ?")) {
+        stock.splice(index, 1);
+        enregistrerStock();
+        rafraichirTableau();
+      }
+    }
+
+    function daysBetween(date1, date2) {
+      const diff = Math.abs(date1 - date2);
+      return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    }
+
+    function importCSV() {
+      alert("Cette fonction sera intégrée avec une bibliothèque externe (ex: SheetJS). Version V2 possible.");
+    }
+
+    function exportCSV() {
+      let csv = "Code-barres,Nom,Lot,Péremption,Contrôle,Quantité\n";
+      stock.forEach(item => {
+        csv += `${item.code},${item.nom},${item.lot},${item.peremption || ''},${item.controle || ''},${item.quantite}\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "stock_protection_civile.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
