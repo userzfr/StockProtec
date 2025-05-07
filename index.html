@@ -1,60 +1,41 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestion des Stocks - Protection Civile de la Loire</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestion de stock - Protection Civile</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <style>
-    .expiré {
-      background-color: #ffe5cc !important;
-    }
-    .alerte {
-      background-color: #ffcccc !important;
-    }
-    .critique {
-      background-color: red !important;
-      color: white !important;
-      animation: clignoter 1s infinite;
-    }
-    @keyframes clignoter {
-      0% { opacity: 1; }
-      50% { opacity: 0.5; }
-      100% { opacity: 1; }
-    }
-    .notification {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      background-color: #ffc;
-      border: 1px solid #ccc;
-      padding: 10px;
-      border-radius: 5px;
-      z-index: 9999;
-    }
-    footer {
-      text-align: center;
-      margin-top: 50px;
-      font-size: 0.9rem;
-      color: #777;
-    }
+    body { padding: 20px; }
+    .alerte { background-color: #ffdddd !important; }
+    .critique { background-color: #f8d7da !important; }
+    .expiré { background-color: #fff3cd !important; }
+    .code-barre-img { max-width: 150px; overflow: hidden; text-align: center; }
   </style>
 </head>
-<body class="p-4">
+<body>
   <div class="container">
-    <h1 class="mb-4">🛠️ Gestion des Stocks - Protection Civile 42</h1>
-
-    <div id="notifBox" class="notification" style="display:none;"></div>
-
-    <div class="mb-3">
-      <button class="btn btn-success" onclick="importCSV()">📥 Importer depuis Excel</button>
-      <button class="btn btn-primary" onclick="exportCSV()">📤 Exporter vers Excel</button>
-      <button class="btn btn-warning" onclick="ajouterProduit()">➕ Ajouter Produit</button>
+    <h1 class="mb-4">📦 Gestion de Stock - Protection Civile</h1>
+    <div class="mb-3 d-flex gap-2 flex-wrap">
+      <button class="btn btn-success" onclick="ajouterProduit()">➕ Ajouter un produit</button>
+      <button class="btn btn-primary" onclick="exporterDonnees()">💾 Exporter les données</button>
+      <label class="btn btn-secondary">
+        📁 Importer JSON <input type="file" id="importFile" accept=".json" onchange="importerDonnees()" hidden>
+      </label>
+      <label class="btn btn-secondary">
+        📊 Importer Excel <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="importerExcel()" hidden>
+      </label>
     </div>
 
-    <input type="text" class="form-control mb-3" id="scanInput" placeholder="Scanner un code-barres..." oninput="chercherParCode(this.value)">
+    <div class="mb-3">
+      <input type="text" id="rechercheCode" class="form-control" placeholder="🔍 Rechercher par code-barres..." oninput="filtrerParCode()">
+    </div>
 
-    <table class="table table-bordered" id="stockTable">
+    <div id="notification"></div>
+    <table class="table table-bordered table-striped" id="stockTable">
       <thead class="table-dark">
         <tr>
           <th>Code-barres</th>
@@ -63,85 +44,70 @@
           <th>Date Péremption</th>
           <th>Date Contrôle</th>
           <th>Quantité</th>
+          <th>Catégorie</th>
+          <th>Sous-catégorie</th>
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody>
-        <!-- Lignes dynamiques -->
-      </tbody>
+      <tbody></tbody>
     </table>
-
-    <footer>
-      ❤️ Fait avec amour par Mathieu M
-    </footer>
   </div>
 
   <script>
-    let stock = JSON.parse(localStorage.getItem("stock_data") || "[]");
-
-    window.onload = () => {
-      rafraichirTableau();
-      setTimeout(() => afficherAlertes(), 500);
-    };
-
-    function afficherNotification(msg) {
-      const box = document.getElementById("notifBox");
-      box.innerText = msg;
-      box.style.display = "block";
-      setTimeout(() => box.style.display = "none", 4000);
-    }
-
-    function afficherAlertes() {
-      const now = new Date();
-      const périmés = stock.filter(p => p.peremption && new Date(p.peremption) < now).length;
-      const bientôt = stock.filter(p => p.peremption && daysBetween(now, new Date(p.peremption)) <= 30 && daysBetween(now, new Date(p.peremption)) >= 0).length;
-      const àContrôler = stock.filter(p => !p.controle || daysBetween(new Date(p.controle), now) > 30).length;
-      if (périmés + bientôt + àContrôler > 0) {
-        afficherNotification(`${périmés} périmé(s), ${bientôt} expirant bientôt, ${àContrôler} à contrôler`);
-      }
-    }
+    let stock = JSON.parse(localStorage.getItem("stock") || "[]");
+    const categories = [
+      { nom: "Médicaments", sousCategories: ["Antibiotiques", "Analgésiques"] },
+      { nom: "Équipements", sousCategories: ["Défibrillateurs", "Brancards"] }
+    ];
 
     function enregistrerStock() {
-      localStorage.setItem("stock_data", JSON.stringify(stock));
+      localStorage.setItem("stock", JSON.stringify(stock));
+    }
+
+    function genererCodeUnique() {
+      const existants = stock.map(p => p.code);
+      let code;
+      do {
+        code = 'INV-' + Math.floor(100000 + Math.random() * 900000);
+      } while (existants.includes(code));
+      return code;
+    }
+
+    function afficherCodeBarreSvg(code) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      JsBarcode(svg, code, { format: "CODE128", width: 2, height: 30, displayValue: false });
+      return svg.outerHTML;
     }
 
     function ajouterProduit() {
-      const code = prompt("Code-barres unique :");
+      let code = prompt("Code-barres unique (laisser vide pour générer automatiquement) :");
+      if (!code) {
+        code = genererCodeUnique();
+        alert("Code généré automatiquement : " + code);
+      }
       const nom = prompt("Nom du produit :");
       const lot = prompt("Numéro de lot :");
       const peremption = prompt("Date de péremption (YYYY-MM-DD) ou vide :");
       const quantite = parseInt(prompt("Quantité :")) || 0;
       const controle = new Date().toISOString().split("T")[0];
 
+      const nomsCategories = categories.map(c => c.nom);
+      const categorie = prompt("Catégorie (" + nomsCategories.join(", ") + ") :");
+      const catObj = categories.find(c => c.nom === categorie);
+      if (!catObj) return alert("Catégorie invalide.");
+      const sousCategorie = prompt("Sous-catégorie (" + catObj.sousCategories.join(", ") + ") :");
+      if (!catObj.sousCategories.includes(sousCategorie)) return alert("Sous-catégorie invalide.");
+
       const existant = stock.find(p => p.code === code);
       if (existant) {
         existant.quantite += quantite;
         existant.controle = controle;
-        afficherNotification("Stock mis à jour (quantité + contrôle). Code déjà existant.");
       } else {
-        stock.push({ code, nom, lot, peremption, controle, quantite });
+        stock.push({ code, nom, lot, peremption, controle, quantite, categorie, sousCategorie });
       }
       enregistrerStock();
       rafraichirTableau();
-    }
-
-    function modifierProduit(index) {
-      const produit = stock[index];
-      const quantite = parseInt(prompt("Nouvelle quantité :", produit.quantite)) || 0;
-      const controle = new Date().toISOString().split("T")[0];
-      produit.quantite = quantite;
-      produit.controle = controle;
-      enregistrerStock();
-      rafraichirTableau();
-    }
-
-    function controlerProduit(index) {
-      const produit = stock[index];
-      const controle = new Date().toISOString().split("T")[0];
-      produit.controle = controle;
-      enregistrerStock();
-      rafraichirTableau();
-      afficherNotification("Date de contrôle mise à jour.");
+      afficherNotification("Produit ajouté/modifié avec succès.");
     }
 
     function rafraichirTableau() {
@@ -152,10 +118,8 @@
       stock.forEach((item, index) => {
         const tr = document.createElement("tr");
         let className = "";
-
         const datePeremption = item.peremption ? new Date(item.peremption) : null;
         const dateControle = item.controle ? new Date(item.controle) : null;
-
         if (!dateControle || daysBetween(dateControle, now) > 30) className = "critique";
         else if (datePeremption && datePeremption < now) className = "critique";
         else if (datePeremption && daysBetween(now, datePeremption) < 30) className = "expiré";
@@ -164,16 +128,20 @@
         tr.className = className;
         tr.id = `row-${item.code}`;
 
+        const svgCode = afficherCodeBarreSvg(item.code);
+
         tr.innerHTML = `
-          <td>${item.code}</td>
+          <td><div class="code-barre-img">${svgCode}<div class="small">${item.code}</div></div></td>
           <td>${item.nom}</td>
           <td>${item.lot}</td>
           <td>${item.peremption || '-'}</td>
           <td>${item.controle || '-'}</td>
           <td>${item.quantite}</td>
+          <td>${item.categorie || '-'}</td>
+          <td>${item.sousCategorie || '-'}</td>
           <td>
-            <button class="btn btn-sm btn-secondary me-1" onclick="modifierProduit(${index})">✏️ Modifier</button>
-            <button class="btn btn-sm btn-info me-1" onclick="controlerProduit(${index})">🕵️ Contrôler</button>
+            <button class="btn btn-sm btn-secondary me-1" onclick="modifierProduit(${index})">✏️</button>
+            <button class="btn btn-sm btn-info me-1" onclick="controlerProduit(${index})">🕵️</button>
             <button class="btn btn-sm btn-danger" onclick="supprimer(${index})">🗑️</button>
           </td>
         `;
@@ -181,45 +149,129 @@
       });
     }
 
-    function chercherParCode(code) {
-      const ligne = document.getElementById(`row-${code}`);
-      if (ligne) {
-        ligne.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        ligne.classList.add("table-warning");
-        setTimeout(() => ligne.classList.remove("table-warning"), 2000);
-      }
-    }
-
     function supprimer(index) {
       if (confirm("Supprimer ce produit ?")) {
         stock.splice(index, 1);
         enregistrerStock();
         rafraichirTableau();
+        afficherNotification("Produit supprimé.");
       }
     }
 
+    function modifierProduit(index) {
+      const produit = stock[index];
+      produit.nom = prompt("Nom :", produit.nom);
+      produit.lot = prompt("Lot :", produit.lot);
+      produit.peremption = prompt("Péremption (YYYY-MM-DD) :", produit.peremption);
+      produit.quantite = parseInt(prompt("Quantité :", produit.quantite)) || 0;
+      enregistrerStock();
+      rafraichirTableau();
+      afficherNotification("Produit modifié.");
+    }
+
+    function controlerProduit(index) {
+      stock[index].controle = new Date().toISOString().split("T")[0];
+      enregistrerStock();
+      rafraichirTableau();
+      afficherNotification("Produit contrôlé.");
+    }
+
     function daysBetween(date1, date2) {
-      const diff = Math.abs(date1 - date2);
-      return Math.ceil(diff / (1000 * 60 * 60 * 24));
+      return Math.ceil((date2 - date1) / (1000 * 60 * 60 * 24));
     }
 
-    function importCSV() {
-      alert("Cette fonction sera intégrée avec une bibliothèque externe (ex: SheetJS). Version V2 possible.");
-    }
-
-    function exportCSV() {
-      let csv = "Code-barres,Nom,Lot,Péremption,Contrôle,Quantité\n";
-      stock.forEach(item => {
-        csv += `${item.code},${item.nom},${item.lot},${item.peremption || ''},${item.controle || ''},${item.quantite}\n`;
-      });
-      const blob = new Blob([csv], { type: "text/csv" });
+    function exporterDonnees() {
+      const dataStr = JSON.stringify(stock, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "stock_protection_civile.csv";
+      a.download = "stock_data.json";
       a.click();
       URL.revokeObjectURL(url);
     }
+
+    function importerDonnees() {
+      const fileInput = document.getElementById('importFile');
+      const file = fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          if (Array.isArray(importedData)) {
+            stock = importedData;
+            enregistrerStock();
+            rafraichirTableau();
+            afficherNotification("Données importées avec succès.");
+          } else {
+            throw new Error("Format de fichier invalide.");
+          }
+        } catch (error) {
+          alert("Erreur lors de l'importation : " + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function importerExcel() {
+      const fileInput = document.getElementById('excelFile');
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+        jsonData.forEach(row => {
+          const existant = stock.find(p => p.code === row["Code-barres"]);
+          if (existant) {
+            existant.quantite += parseInt(row["Quantité"]) || 0;
+            existant.controle = new Date().toISOString().split("T")[0];
+          } else {
+            stock.push({
+              code: row["Code-barres"],
+              nom: row["Nom"],
+              lot: row["Lot"],
+              peremption: row["Péremption"],
+              controle: new Date().toISOString().split("T")[0],
+              quantite: parseInt(row["Quantité"]) || 0,
+              categorie: row["Catégorie"] || "",
+              sousCategorie: row["Sous-catégorie"] || ""
+            });
+          }
+        });
+
+        enregistrerStock();
+        rafraichirTableau();
+        afficherNotification("Données Excel importées avec succès.");
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function afficherNotification(message) {
+      const div = document.getElementById("notification");
+      div.innerHTML = `
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      `;
+    }
+
+    function filtrerParCode() {
+      const filtre = document.getElementById("rechercheCode").value.trim().toLowerCase();
+      document.querySelectorAll("#stockTable tbody tr").forEach(tr => {
+        const code = tr.querySelector("td:first-child .small").textContent.toLowerCase();
+        tr.style.display = code.includes(filtre) ? "" : "none";
+      });
+    }
+
+    rafraichirTableau();
   </script>
 </body>
 </html>
