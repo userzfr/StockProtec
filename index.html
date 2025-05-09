@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -11,13 +12,13 @@
   <style>
     body { padding: 20px; }
     .alerte { background-color: #ffdddd !important; }
-    .critique { background-color: #f8d7da !important; animation: clignote 1s infinite alternate; }
-    .expiré { background-color: #fff3cd !important; animation: clignote 1s infinite alternate; }
+    .critique { background-color: #dc3545 !important; animation: clignote 1s infinite alternate; color: white !important; }
+    .expiré { background-color: #ffc107 !important; animation: clignote 1s infinite alternate; }
     .code-barre-img svg { max-width: 100%; height: 50px; }
     .code-barre-img { max-width: 200px; word-break: break-all; }
     @keyframes clignote {
-      from { background-color: #f8d7da; }
-      to { background-color: #f1b0b7; }
+      from { opacity: 1; }
+      to { opacity: 0.6; }
     }
   </style>
 </head>
@@ -33,7 +34,7 @@
       <label class="btn btn-secondary">
         📊 Importer Excel <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="importerExcel()" hidden>
       </label>
-      <input id="searchInput" class="form-control w-auto" type="text" placeholder="🔎 Recherche code-barres" oninput="rafraichirTableau()" />
+      <input id="searchInput" class="form-control w-auto" type="text" placeholder="🔎 Recherche code-barres ou contrôle" oninput="rafraichirTableau()" />
     </div>
 
     <div id="notification" class="notification"></div>
@@ -67,11 +68,9 @@
     }
 
     function genererCodeUnique() {
-      const existants = stock.map(p => p.code);
-      let code;
-      do {
-        code = 'INV-' + Math.floor(100000 + Math.random() * 900000);
-      } while (existants.includes(code));
+      const now = new Date();
+      const horodatage = now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+      const code = "INV-" + horodatage;
       return code;
     }
 
@@ -82,27 +81,18 @@
     }
 
     function ajouterProduit() {
-      let code = prompt("Code-barres unique (laisser vide pour générer automatiquement) :");
-      if (!code) {
-        code = genererCodeUnique();
-        alert("Code généré automatiquement : " + code);
-      }
+      const code = genererCodeUnique();
+      alert("Numéro de contrôle généré : " + code);
       const nom = prompt("Nom du produit :");
       const lot = prompt("Numéro de lot :");
       const peremption = prompt("Date de péremption (YYYY-MM-DD) ou vide :");
       const quantite = parseInt(prompt("Quantité :")) || 0;
       const controle = new Date().toISOString().split("T")[0];
 
-      const existant = stock.find(p => p.code === code);
-      if (existant) {
-        existant.quantite += quantite;
-        existant.controle = controle;
-      } else {
-        stock.push({ code, nom, lot, peremption, controle, quantite });
-      }
+      stock.push({ code, nom, lot, peremption, controle, quantite });
       enregistrerStock();
       rafraichirTableau();
-      afficherNotification("Produit ajouté/modifié avec succès.");
+      afficherNotification("Produit ajouté avec succès.");
     }
 
     function rafraichirTableau() {
@@ -119,14 +109,11 @@
         const datePeremption = item.peremption ? new Date(item.peremption) : null;
         const dateControle = item.controle ? new Date(item.controle) : null;
 
-        if (!dateControle || daysBetween(dateControle, now) > 30) className = "critique";
-        else if (datePeremption && datePeremption < now) className = "critique";
+        if (!dateControle || daysBetween(dateControle, now) > 30 || (datePeremption && datePeremption < now)) className = "critique";
         else if (datePeremption && daysBetween(now, datePeremption) < 30) className = "expiré";
         else if (item.quantite <= 1) className = "alerte";
 
         tr.className = className;
-        tr.id = `row-${item.code}`;
-
         const svgCode = afficherCodeBarreSvg(item.code);
 
         tr.innerHTML = `
@@ -226,20 +213,14 @@
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
         jsonData.forEach(row => {
-          const existant = stock.find(p => p.code === row["Code-barres"]);
-          if (existant) {
-            existant.quantite += parseInt(row["Quantité"]) || 0;
-            existant.controle = new Date().toISOString().split("T")[0];
-          } else {
-            stock.push({
-              code: row["Code-barres"],
-              nom: row["Nom"],
-              lot: row["Lot"],
-              peremption: row["Péremption"],
-              controle: new Date().toISOString().split("T")[0],
-              quantite: parseInt(row["Quantité"]) || 0
-            });
-          }
+          stock.push({
+            code: row["Code-barres"],
+            nom: row["Nom"],
+            lot: row["Lot"],
+            peremption: row["Péremption"],
+            controle: new Date().toISOString().split("T")[0],
+            quantite: parseInt(row["Quantité"]) || 0
+          });
         });
 
         enregistrerStock();
@@ -263,19 +244,19 @@
       });
 
       if (perimes > 0 || controles > 0) {
-        afficherNotification(`⚠️ ${perimes} produit(s) périmé(s), ${controles} en attente de vérification !`, "danger", 10000);
+        afficherNotification(`⚠️ ${perimes} produit(s) périmé(s), ${controles} en attente de vérification !`, "danger", 0);
       } else {
-        afficherNotification("✅ Tous les stocks sont à jour et sans risque de péremption.", "success", 10000);
+        afficherNotification("✅ Tous les stocks sont à jour et sans risque de péremption.", "success", 0);
       }
     }
 
-    function afficherNotification(message, type = "success", duree = 5000) {
+    function afficherNotification(message, type = "success", duree = 0) {
       const div = document.getElementById("notification");
-      div.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+      div.innerHTML = `<div class="alert alert-${type} alert-dismissible show" role="alert">
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>`;
-      setTimeout(() => div.innerHTML = "", duree);
+      if (duree > 0) setTimeout(() => div.innerHTML = "", duree);
     }
 
     rafraichirTableau();
