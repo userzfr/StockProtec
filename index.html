@@ -11,22 +11,23 @@
   <style>
     body { padding: 20px; }
     .alerte { background-color: #ffdddd !important; }
-    .critique, .expiré {
-      background-color: #f8d7da !important;
-      animation: clignote 1s infinite alternate;
-    }
+    .critique, .expiré { animation: clignote 1s infinite alternate; }
+    .critique { background-color: #f8d7da !important; }
+    .expiré { background-color: #fff3cd !important; }
     .code-barre-img svg { max-width: 100%; height: 50px; }
-    .code-barre-img { max-width: 200px; word-break: break-all; }
+    .code-barre-img { max-width: 200px; word-break: break-word; }
     @keyframes clignote {
       from { background-color: #f8d7da; }
       to { background-color: #f1b0b7; }
     }
+    #btnDanger { animation: clignote 1s infinite alternate; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1 class="mb-4">📦 Gestion de Stock - Protection Civile</h1>
     <div class="mb-3 d-flex gap-2 flex-wrap">
+      <button class="btn btn-danger d-none" id="btnDanger" onclick="scrollToAlert()">🚨 Attention stock à risque</button>
       <button class="btn btn-success" onclick="ajouterProduit()">➕ Ajouter un produit</button>
       <button class="btn btn-primary" onclick="exporterDonnees()">💾 Exporter les données</button>
       <label class="btn btn-secondary">
@@ -47,7 +48,7 @@
           <th>Nom</th>
           <th>Lot</th>
           <th>Date Péremption</th>
-          <th>Date Contrôle [ID]</th>
+          <th>Date Contrôle</th>
           <th>Quantité</th>
           <th>Actions</th>
         </tr>
@@ -69,12 +70,8 @@
     }
 
     function genererCodeUnique() {
-      return 'INV-' + Math.floor(100000 + Math.random() * 900000);
-    }
-
-    function genererIdControle() {
-      const date = new Date();
-      return "CTRL-" + date.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+      const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+      return "INV-" + timestamp + "-" + Math.floor(1000 + Math.random() * 9000);
     }
 
     function afficherCodeBarreSvg(code) {
@@ -94,7 +91,7 @@
       const peremption = prompt("Date de péremption (YYYY-MM-DD) ou vide :");
       const quantite = parseInt(prompt("Quantité :")) || 0;
       const controle = new Date().toISOString().split("T")[0];
-      const idControle = genererIdControle();
+      const idControle = "CTRL-" + new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
 
       const existant = stock.find(p => p.code === code);
       if (existant) {
@@ -106,7 +103,7 @@
       }
       enregistrerStock();
       rafraichirTableau();
-      afficherNotification(`Produit ajouté avec ID de contrôle [${idControle}]`, "success", 0);
+      afficherNotification("Produit ajouté/modifié avec succès.");
     }
 
     function rafraichirTableau() {
@@ -114,6 +111,7 @@
       const tbody = document.querySelector("#stockTable tbody");
       tbody.innerHTML = "";
       const now = new Date();
+      let danger = false;
 
       stock.forEach((item, index) => {
         if (search && !item.code.toLowerCase().includes(search)) return;
@@ -122,11 +120,15 @@
         let className = "";
         const datePeremption = item.peremption ? new Date(item.peremption) : null;
         const dateControle = item.controle ? new Date(item.controle) : null;
+        const joursPeremption = datePeremption ? daysBetween(now, datePeremption) : Infinity;
+        const joursControle = dateControle ? daysBetween(dateControle, now) : Infinity;
 
-        if (!dateControle || daysBetween(dateControle, now) > 30 || (datePeremption && datePeremption < now)) {
+        if (!dateControle || joursControle > 30 || (datePeremption && joursPeremption < 0)) {
           className = "critique";
-        } else if (datePeremption && daysBetween(now, datePeremption) < 30) {
+          danger = true;
+        } else if (joursPeremption >= 0 && joursPeremption < 30) {
           className = "expiré";
+          danger = true;
         } else if (item.quantite <= 1) {
           className = "alerte";
         }
@@ -152,46 +154,110 @@
         tbody.appendChild(tr);
       });
 
+      const dangerBtn = document.getElementById("btnDanger");
+      if (danger) {
+        dangerBtn.classList.remove("d-none");
+      } else {
+        dangerBtn.classList.add("d-none");
+      }
+
       notificationAutomatique();
     }
 
     function modifierProduit(index) {
-      const p = stock[index];
-      const nom = prompt("Nom :", p.nom);
-      const lot = prompt("Lot :", p.lot);
-      const peremption = prompt("Péremption (YYYY-MM-DD) :", p.peremption);
-      const quantite = prompt("Quantité :", p.quantite);
-
-      if (nom) p.nom = nom;
-      if (lot) p.lot = lot;
-      if (peremption) p.peremption = peremption;
-      if (quantite) p.quantite = parseInt(quantite) || p.quantite;
-
+      const produit = stock[index];
+      const nom = prompt("Nom :", produit.nom);
+      if (nom) produit.nom = nom;
+      const lot = prompt("Lot :", produit.lot);
+      if (lot) produit.lot = lot;
+      const peremption = prompt("Péremption (YYYY-MM-DD) :", produit.peremption);
+      if (peremption) produit.peremption = peremption;
+      const quantite = prompt("Quantité :", produit.quantite);
+      if (quantite !== null && quantite !== "") produit.quantite = parseInt(quantite) || 0;
       enregistrerStock();
       rafraichirTableau();
-      afficherNotification("Produit modifié.", "success", 0);
+      afficherNotification("Produit modifié.");
     }
 
     function controlerProduit(index) {
-      const now = new Date();
-      stock[index].controle = now.toISOString().split("T")[0];
-      stock[index].idControle = genererIdControle();
+      stock[index].controle = new Date().toISOString().split("T")[0];
+      stock[index].idControle = "CTRL-" + new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
       enregistrerStock();
       rafraichirTableau();
-      afficherNotification(`Contrôle enregistré. [${stock[index].idControle}]`, "info", 0);
+      afficherNotification("Produit contrôlé.");
     }
 
-    function supprimer(index) {
-      if (confirm("Supprimer ce produit ?")) {
-        stock.splice(index, 1);
+    function daysBetween(date1, date2) {
+      return Math.ceil((date2 - date1) / (1000 * 60 * 60 * 24));
+    }
+
+    function exporterDonnees() {
+      const dataStr = JSON.stringify(stock, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "stock_data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importerDonnees() {
+      const fileInput = document.getElementById('importFile');
+      const file = fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          if (Array.isArray(importedData)) {
+            stock = importedData;
+            enregistrerStock();
+            rafraichirTableau();
+            afficherNotification("Données importées avec succès.");
+          } else {
+            throw new Error("Format de fichier invalide.");
+          }
+        } catch (error) {
+          alert("Erreur lors de l'importation : " + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function importerExcel() {
+      const fileInput = document.getElementById('excelFile');
+      const file = fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+        jsonData.forEach(row => {
+          const existant = stock.find(p => p.code === row["Code-barres"]);
+          if (existant) {
+            existant.quantite += parseInt(row["Quantité"]) || 0;
+            existant.controle = new Date().toISOString().split("T")[0];
+          } else {
+            stock.push({
+              code: row["Code-barres"],
+              nom: row["Nom"],
+              lot: row["Lot"],
+              peremption: row["Péremption"],
+              controle: new Date().toISOString().split("T")[0],
+              quantite: parseInt(row["Quantité"]) || 0
+            });
+          }
+        });
+
         enregistrerStock();
         rafraichirTableau();
-        afficherNotification("Produit supprimé.", "danger", 0);
-      }
-    }
-
-    function daysBetween(d1, d2) {
-      return Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24));
+        afficherNotification("Données Excel importées avec succès.");
+      };
+      reader.readAsArrayBuffer(file);
     }
 
     function notificationAutomatique() {
@@ -200,10 +266,11 @@
       let controles = 0;
 
       stock.forEach((item) => {
-        const peremption = item.peremption ? new Date(item.peremption) : null;
-        const controle = item.controle ? new Date(item.controle) : null;
-        if (peremption && peremption < now) perimes++;
-        if (!controle || daysBetween(controle, now) > 30) controles++;
+        const datePeremption = item.peremption ? new Date(item.peremption) : null;
+        const dateControle = item.controle ? new Date(item.controle) : null;
+
+        if (datePeremption && datePeremption < now) perimes++;
+        if (!dateControle || daysBetween(dateControle, now) > 30) controles++;
       });
 
       if (perimes > 0 || controles > 0) {
@@ -219,8 +286,13 @@
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>`;
-      if (duree > 0) {
-        setTimeout(() => div.innerHTML = "", duree);
+      if (duree > 0) setTimeout(() => div.innerHTML = "", duree);
+    }
+
+    function scrollToAlert() {
+      const first = document.querySelector("tr.critique, tr.expiré");
+      if (first) {
+        first.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     }
 
