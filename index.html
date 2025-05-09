@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -12,13 +11,15 @@
   <style>
     body { padding: 20px; }
     .alerte { background-color: #ffdddd !important; }
-    .critique { background-color: #dc3545 !important; animation: clignote 1s infinite alternate; color: white !important; }
-    .expiré { background-color: #ffc107 !important; animation: clignote 1s infinite alternate; }
+    .critique, .expiré {
+      background-color: #f8d7da !important;
+      animation: clignote 1s infinite alternate;
+    }
     .code-barre-img svg { max-width: 100%; height: 50px; }
     .code-barre-img { max-width: 200px; word-break: break-all; }
     @keyframes clignote {
-      from { opacity: 1; }
-      to { opacity: 0.6; }
+      from { background-color: #f8d7da; }
+      to { background-color: #f1b0b7; }
     }
   </style>
 </head>
@@ -34,7 +35,7 @@
       <label class="btn btn-secondary">
         📊 Importer Excel <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="importerExcel()" hidden>
       </label>
-      <input id="searchInput" class="form-control w-auto" type="text" placeholder="🔎 Recherche code-barres ou contrôle" oninput="rafraichirTableau()" />
+      <input id="searchInput" class="form-control w-auto" type="text" placeholder="🔎 Recherche code-barres" oninput="rafraichirTableau()" />
     </div>
 
     <div id="notification" class="notification"></div>
@@ -46,7 +47,7 @@
           <th>Nom</th>
           <th>Lot</th>
           <th>Date Péremption</th>
-          <th>Date Contrôle</th>
+          <th>Date Contrôle [ID]</th>
           <th>Quantité</th>
           <th>Actions</th>
         </tr>
@@ -68,10 +69,12 @@
     }
 
     function genererCodeUnique() {
-      const now = new Date();
-      const horodatage = now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
-      const code = "INV-" + horodatage;
-      return code;
+      return 'INV-' + Math.floor(100000 + Math.random() * 900000);
+    }
+
+    function genererIdControle() {
+      const date = new Date();
+      return "CTRL-" + date.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
     }
 
     function afficherCodeBarreSvg(code) {
@@ -81,18 +84,29 @@
     }
 
     function ajouterProduit() {
-      const code = genererCodeUnique();
-      alert("Numéro de contrôle généré : " + code);
+      let code = prompt("Code-barres unique (laisser vide pour générer automatiquement) :");
+      if (!code) {
+        code = genererCodeUnique();
+        alert("Code généré automatiquement : " + code);
+      }
       const nom = prompt("Nom du produit :");
       const lot = prompt("Numéro de lot :");
       const peremption = prompt("Date de péremption (YYYY-MM-DD) ou vide :");
       const quantite = parseInt(prompt("Quantité :")) || 0;
       const controle = new Date().toISOString().split("T")[0];
+      const idControle = genererIdControle();
 
-      stock.push({ code, nom, lot, peremption, controle, quantite });
+      const existant = stock.find(p => p.code === code);
+      if (existant) {
+        existant.quantite += quantite;
+        existant.controle = controle;
+        existant.idControle = idControle;
+      } else {
+        stock.push({ code, nom, lot, peremption, controle, idControle, quantite });
+      }
       enregistrerStock();
       rafraichirTableau();
-      afficherNotification("Produit ajouté avec succès.");
+      afficherNotification(`Produit ajouté avec ID de contrôle [${idControle}]`, "success", 0);
     }
 
     function rafraichirTableau() {
@@ -109,11 +123,17 @@
         const datePeremption = item.peremption ? new Date(item.peremption) : null;
         const dateControle = item.controle ? new Date(item.controle) : null;
 
-        if (!dateControle || daysBetween(dateControle, now) > 30 || (datePeremption && datePeremption < now)) className = "critique";
-        else if (datePeremption && daysBetween(now, datePeremption) < 30) className = "expiré";
-        else if (item.quantite <= 1) className = "alerte";
+        if (!dateControle || daysBetween(dateControle, now) > 30 || (datePeremption && datePeremption < now)) {
+          className = "critique";
+        } else if (datePeremption && daysBetween(now, datePeremption) < 30) {
+          className = "expiré";
+        } else if (item.quantite <= 1) {
+          className = "alerte";
+        }
 
         tr.className = className;
+        tr.id = `row-${item.code}`;
+
         const svgCode = afficherCodeBarreSvg(item.code);
 
         tr.innerHTML = `
@@ -121,7 +141,7 @@
           <td>${item.nom}</td>
           <td>${item.lot}</td>
           <td>${item.peremption || '-'}</td>
-          <td>${item.controle || '-'}</td>
+          <td>${item.controle || '-'}<br><span class="text-muted small">[${item.idControle || '-'}]</span></td>
           <td>${item.quantite}</td>
           <td>
             <button class="btn btn-sm btn-secondary me-1" onclick="modifierProduit(${index})">✏️</button>
@@ -135,99 +155,43 @@
       notificationAutomatique();
     }
 
+    function modifierProduit(index) {
+      const p = stock[index];
+      const nom = prompt("Nom :", p.nom);
+      const lot = prompt("Lot :", p.lot);
+      const peremption = prompt("Péremption (YYYY-MM-DD) :", p.peremption);
+      const quantite = prompt("Quantité :", p.quantite);
+
+      if (nom) p.nom = nom;
+      if (lot) p.lot = lot;
+      if (peremption) p.peremption = peremption;
+      if (quantite) p.quantite = parseInt(quantite) || p.quantite;
+
+      enregistrerStock();
+      rafraichirTableau();
+      afficherNotification("Produit modifié.", "success", 0);
+    }
+
+    function controlerProduit(index) {
+      const now = new Date();
+      stock[index].controle = now.toISOString().split("T")[0];
+      stock[index].idControle = genererIdControle();
+      enregistrerStock();
+      rafraichirTableau();
+      afficherNotification(`Contrôle enregistré. [${stock[index].idControle}]`, "info", 0);
+    }
+
     function supprimer(index) {
       if (confirm("Supprimer ce produit ?")) {
         stock.splice(index, 1);
         enregistrerStock();
         rafraichirTableau();
-        afficherNotification("Produit supprimé.");
+        afficherNotification("Produit supprimé.", "danger", 0);
       }
     }
 
-    function modifierProduit(index) {
-      const produit = stock[index];
-      produit.nom = prompt("Nom :", produit.nom);
-      produit.lot = prompt("Lot :", produit.lot);
-      produit.peremption = prompt("Péremption (YYYY-MM-DD) :", produit.peremption);
-      produit.quantite = parseInt(prompt("Quantité :", produit.quantite)) || 0;
-      enregistrerStock();
-      rafraichirTableau();
-      afficherNotification("Produit modifié.");
-    }
-
-    function controlerProduit(index) {
-      stock[index].controle = new Date().toISOString().split("T")[0];
-      enregistrerStock();
-      rafraichirTableau();
-      afficherNotification("Produit contrôlé.");
-    }
-
-    function daysBetween(date1, date2) {
-      return Math.ceil((date2 - date1) / (1000 * 60 * 60 * 24));
-    }
-
-    function exporterDonnees() {
-      const dataStr = JSON.stringify(stock, null, 2);
-      const blob = new Blob([dataStr], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "stock_data.json";
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function importerDonnees() {
-      const fileInput = document.getElementById('importFile');
-      const file = fileInput.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const importedData = JSON.parse(e.target.result);
-          if (Array.isArray(importedData)) {
-            stock = importedData;
-            enregistrerStock();
-            rafraichirTableau();
-            afficherNotification("Données importées avec succès.");
-          } else {
-            throw new Error("Format de fichier invalide.");
-          }
-        } catch (error) {
-          alert("Erreur lors de l'importation : " + error.message);
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    function importerExcel() {
-      const fileInput = document.getElementById('excelFile');
-      const file = fileInput.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-        jsonData.forEach(row => {
-          stock.push({
-            code: row["Code-barres"],
-            nom: row["Nom"],
-            lot: row["Lot"],
-            peremption: row["Péremption"],
-            controle: new Date().toISOString().split("T")[0],
-            quantite: parseInt(row["Quantité"]) || 0
-          });
-        });
-
-        enregistrerStock();
-        rafraichirTableau();
-        afficherNotification("Données Excel importées avec succès.");
-      };
-      reader.readAsArrayBuffer(file);
+    function daysBetween(d1, d2) {
+      return Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24));
     }
 
     function notificationAutomatique() {
@@ -236,11 +200,10 @@
       let controles = 0;
 
       stock.forEach((item) => {
-        const datePeremption = item.peremption ? new Date(item.peremption) : null;
-        const dateControle = item.controle ? new Date(item.controle) : null;
-
-        if (datePeremption && datePeremption < now) perimes++;
-        if (!dateControle || daysBetween(dateControle, now) > 30) controles++;
+        const peremption = item.peremption ? new Date(item.peremption) : null;
+        const controle = item.controle ? new Date(item.controle) : null;
+        if (peremption && peremption < now) perimes++;
+        if (!controle || daysBetween(controle, now) > 30) controles++;
       });
 
       if (perimes > 0 || controles > 0) {
@@ -252,11 +215,13 @@
 
     function afficherNotification(message, type = "success", duree = 0) {
       const div = document.getElementById("notification");
-      div.innerHTML = `<div class="alert alert-${type} alert-dismissible show" role="alert">
+      div.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>`;
-      if (duree > 0) setTimeout(() => div.innerHTML = "", duree);
+      if (duree > 0) {
+        setTimeout(() => div.innerHTML = "", duree);
+      }
     }
 
     rafraichirTableau();
