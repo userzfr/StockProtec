@@ -71,10 +71,7 @@
     }
 
     function genererCodeCourt() {
-      const now = new Date();
-      const dateStr = now.toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
-      const random = Math.floor(100 + Math.random() * 900);
-      return "ID" + dateStr + random;
+      return "INV-" + Math.floor(100000 + Math.random() * 900000);
     }
 
     function afficherCodeBarreSvg(code) {
@@ -94,19 +91,17 @@
       const peremption = prompt("Date de péremption (YYYY-MM-DD) :");
       const quantite = parseInt(prompt("Quantité :")) || 0;
       const controle = new Date().toISOString().split("T")[0];
-      const idControle = "C-" + Date.now();
 
       const existant = stock.find(p => p.code === code);
       if (existant) {
         existant.quantite += quantite;
         existant.controle = controle;
-        existant.idControle = idControle;
       } else {
-        stock.push({ code, nom, lot, peremption, controle, idControle, quantite });
+        stock.push({ code, nom, lot, peremption, controle, quantite });
       }
       enregistrerStock();
       rafraichirTableau();
-      afficherNotification(`Produit ajouté [${idControle}]`, "success", 15000);
+      afficherNotification(`Produit ajouté`, "success", 15000);
     }
 
     function rafraichirTableau() {
@@ -140,7 +135,7 @@
           <td>${item.nom}</td>
           <td>${item.lot}</td>
           <td>${item.peremption || "-"}</td>
-          <td>${item.controle || "-"} [${item.idControle || "-"}]</td>
+          <td>${item.controle || "-"}</td>
           <td>${item.quantite}</td>
           <td>
             ${alerteBtn}
@@ -183,7 +178,6 @@
 
     function controlerProduit(index) {
       stock[index].controle = new Date().toISOString().split("T")[0];
-      stock[index].idControle = "C-" + Date.now();
       enregistrerStock();
       rafraichirTableau();
       afficherNotification("Produit contrôlé.", "success", 10000);
@@ -214,7 +208,6 @@
     function afficherNotification(message, type = "success", duree = 20000) {
       const div = document.getElementById("notification");
       div.innerHTML = `<div class="alert alert-${type}" role="alert">${message}</div>`;
-      // On laisse l'utilisateur fermer manuellement la notif
     }
 
     rafraichirTableau();
