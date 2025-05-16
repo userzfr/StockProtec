@@ -30,13 +30,6 @@
     <h1 class="mb-4">📦 Gestion de Stock - Protection Civile</h1>
     <div class="mb-3 d-flex gap-2 flex-wrap">
       <button class="btn btn-success" onclick="ajouterProduit()">➕ Ajouter un produit</button>
-      <button class="btn btn-primary" onclick="exporterDonnees()">💾 Exporter les données</button>
-      <label class="btn btn-secondary">
-        📁 Importer JSON <input type="file" id="importFile" accept=".json" onchange="importerDonnees()" hidden>
-      </label>
-      <label class="btn btn-secondary">
-        📊 Importer Excel <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="importerExcel()" hidden>
-      </label>
       <input id="searchInput" class="form-control w-auto" type="text" placeholder="🔎 Recherche code-barres" oninput="rafraichirTableau()" />
     </div>
 
@@ -64,10 +57,20 @@
   </footer>
 
   <script>
-    let stock = JSON.parse(localStorage.getItem("stock") || "[]");
+    let stock = [];
 
-    function enregistrerStock() {
-      localStorage.setItem("stock", JSON.stringify(stock));
+    async function chargerStock() {
+      const res = await fetch('/donnees.json');
+      stock = await res.json();
+      rafraichirTableau();
+    }
+
+    function sauvegarderServeur() {
+      fetch('/sauvegarder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stock)
+      });
     }
 
     function genererCodeCourt() {
@@ -99,9 +102,8 @@
       } else {
         stock.push({ code, nom, lot, peremption, controle, quantite });
       }
-      enregistrerStock();
+      sauvegarderServeur();
       rafraichirTableau();
-      afficherNotification(`Produit ajouté`, "success", 15000);
     }
 
     function rafraichirTableau() {
@@ -146,16 +148,13 @@
         `;
         tbody.appendChild(tr);
       });
-
-      notificationAutomatique();
     }
 
     function supprimer(index) {
       if (confirm("Supprimer ce produit ?")) {
         stock.splice(index, 1);
-        enregistrerStock();
+        sauvegarderServeur();
         rafraichirTableau();
-        afficherNotification("Produit supprimé.", "success", 10000);
       }
     }
 
@@ -171,46 +170,21 @@
       if (peremption) p.peremption = peremption;
       if (quantite) p.quantite = parseInt(quantite);
 
-      enregistrerStock();
+      sauvegarderServeur();
       rafraichirTableau();
-      afficherNotification("Produit modifié.", "success", 10000);
     }
 
     function controlerProduit(index) {
       stock[index].controle = new Date().toISOString().split("T")[0];
-      enregistrerStock();
+      sauvegarderServeur();
       rafraichirTableau();
-      afficherNotification("Produit contrôlé.", "success", 10000);
     }
 
     function daysBetween(d1, d2) {
       return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
     }
 
-    function notificationAutomatique() {
-      const now = new Date();
-      let perimes = 0;
-      let controles = 0;
-      stock.forEach(item => {
-        const p = item.peremption ? new Date(item.peremption) : null;
-        const c = item.controle ? new Date(item.controle) : null;
-        if (p && p < now) perimes++;
-        if (!c || daysBetween(c, now) > 30) controles++;
-      });
-
-      if (perimes || controles) {
-        afficherNotification(`⚠️ ${perimes} périmé(s), ${controles} à recontrôler !`, "danger", 20000);
-      } else {
-        afficherNotification("✅ Tous les stocks sont à jour.", "success", 20000);
-      }
-    }
-
-    function afficherNotification(message, type = "success", duree = 20000) {
-      const div = document.getElementById("notification");
-      div.innerHTML = `<div class="alert alert-${type}" role="alert">${message}</div>`;
-    }
-
-    rafraichirTableau();
+    chargerStock();
   </script>
 </body>
 </html>

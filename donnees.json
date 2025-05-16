@@ -1,0 +1,42 @@
+[
+  {
+    "code": "INV-349404",
+    "nom": "TEST",
+    "lot": "50323",
+    "peremption": "2026-05-05",
+    "controle": "2025-05-16",
+    "quantite": 50
+  },
+  {
+    "code": "138313",
+    "nom": "TEST 2",
+    "lot": "5213",
+    "peremption": "2025-12-12",
+    "controle": "2025-05-16",
+    "quantite": 523
+  },
+  {
+    "code": "INV-452824",
+    "nom": "TEST PERIMER",
+    "lot": "2112",
+    "peremption": "2024-01-01",
+    "controle": "2025-05-16",
+    "quantite": 32
+  },
+  {
+    "code": "01",
+    "nom": "CONTROLE PASSER",
+    "lot": "34",
+    "peremption": "2036-05-05",
+    "controle": "2024-05-16",
+    "quantite": 5
+  },
+  {
+    "code": "BIENTOT PERIME",
+    "nom": "BIENTOT PERIME",
+    "lot": "434",
+    "peremption": "2025-05-20",
+    "controle": "2025-05-16",
+    "quantite": 42
+  }
+]
