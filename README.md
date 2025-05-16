@@ -20,11 +20,13 @@ Fonctionne en local avec enregistrement automatique des données sur le serveur 
 
 ## 📁 Structure du projet
 
+```
 gestion-stock/
-├── index.html # Interface principale (frontend)
-├── server.js # Serveur Node.js (backend)
-├── donnees.json # Base de données JSON (stock)
-└── README.md # Documentation (ce fichier)
+├── index.html        # Interface principale (frontend)
+├── server.js         # Serveur Node.js (backend)
+├── donnees.json      # Base de données JSON (stock)
+└── README.md         # Documentation (ce fichier)
+```
 
 ---
 
@@ -40,21 +42,20 @@ Pas de dépendance externe nécessaire, sauf **Node.js** installé sur ta machin
 node server.js
 ```
 
-Le serveur démarre sur : http://localhost:3000
+> Le serveur démarre sur : [http://localhost:3000](http://localhost:3000)
 
 ### 3. Utiliser l'application
 
-Ouvre ton navigateur à l'adresse : http://localhost:3000
+- Ouvre ton navigateur à l'adresse : [http://localhost:3000](http://localhost:3000)
+- Utilise les boutons pour ajouter, modifier, contrôler et supprimer les produits
+- Le tableau est automatiquement mis à jour
+- Chaque modification est enregistrée en temps réel dans `donnees.json`
 
-Utilise les boutons pour ajouter, modifier, contrôler et supprimer les produits
-
-Le tableau est automatiquement mis à jour
-
-Chaque modification est enregistrée en temps réel dans donnees.json
+---
 
 ## 🔒 Données sauvegardées
 
-Les données sont sauvegardées localement dans le fichier donnees.json sous la forme suivante :
+Les données sont sauvegardées localement dans le fichier `donnees.json` sous la forme suivante :
 
 ```json
 [
@@ -69,12 +70,16 @@ Les données sont sauvegardées localement dans le fichier donnees.json sous la 
 ]
 ```
 
+---
+
 ## 🛠️ Dépendances utilisées
 
-- Bootstrap 5
-- SheetJS
-- JsBarcode
-- Node.js + Express
+- [Bootstrap 5](https://getbootstrap.com/)
+- [SheetJS](https://sheetjs.com/)
+- [JsBarcode](https://github.com/lindell/JsBarcode)
+- [Node.js](https://nodejs.org/) + [Express](https://expressjs.com/)
+
+---
 
 ## 💡 Astuce
 
@@ -82,13 +87,16 @@ Les boutons ⚠️ s’affichent en clignotant pour indiquer une urgence :
 - Produit bientôt périmé
 - Contrôle oublié
 
+---
+
 ## 🧑‍💻 Auteur
 
-Projet réalisé par Mathieu M. pour la Protection Civile
+- Projet réalisé par **Mathieu M.** pour la **Protection Civile**
+- Licence libre pour usage associatif, pédagogique ou personnel
 
-Licence libre pour usage associatif, pédagogique ou personnel
+---
 
 ## 📜 Licence
 
-Ce projet est libre de droits tant qu’il est utilisé dans un cadre bénévole ou associatif.
+Ce projet est libre de droits tant qu’il est utilisé dans un cadre **bénévole ou associatif**.  
 Pour un usage commercial, merci de demander l'autorisation préalable.
