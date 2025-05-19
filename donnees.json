@@ -38,5 +38,13 @@
     "peremption": "2025-05-20",
     "controle": "2025-05-16",
     "quantite": 42
+  },
+  {
+    "code": "INV-727057",
+    "nom": "",
+    "lot": "2",
+    "peremption": "2025-05-19",
+    "controle": "2025-05-19",
+    "quantite": 5664566
   }
 ]
