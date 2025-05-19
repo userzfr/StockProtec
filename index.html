@@ -53,7 +53,11 @@
 
   <footer class="text-center mt-5 text-muted">
     <hr>
-    <p>Fait avec ❤️ par Mathieu.M • <a href="CGU.pdf" target="_blank">Conditions d'utilisation</a></p>
+    <p>
+      Fait avec ❤️ par Mathieu.M • <a href="CGU.pdf" target="_blank">Conditions d'utilisation</a>
+      <br>
+      <span id="version-info">Version : chargement...</span>
+    </p>
   </footer>
 
   <script>
@@ -185,6 +189,31 @@
     }
 
     chargerStock();
+
+    const localVersion = "V.3.5"; // À modifier à chaque nouvelle version
+
+    async function checkLatestVersion() {
+      try {
+        const response = await fetch("https://api.github.com/repos/userzfr/StockProtec/releases/latest");
+        if (!response.ok) throw new Error("Erreur HTTP");
+
+        const data = await response.json();
+        const latestVersion = data.tag_name.replace(/^v/, ""); // Supprime le "v" si présent
+
+        const versionInfo = document.getElementById("version-info");
+
+        if (localVersion === latestVersion) {
+          versionInfo.textContent = `Version : ${localVersion} (A jour)`;
+        } else {
+          versionInfo.innerHTML = `Version : ${localVersion} <span style="color: red;">(⚠️ Mise à jour disponible : ${latestVersion})</span>`;
+        }
+      } catch (err) {
+        console.error("Erreur lors de la récupération de la version :", err);
+        document.getElementById("version-info").textContent = `Version : ${localVersion} (impossible de vérifier les mises à jour)`;
+      }
+    }
+
+  checkLatestVersion();
   </script>
 </body>
 </html>
