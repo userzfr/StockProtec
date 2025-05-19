@@ -1,7 +1,7 @@
 {
   "name": "stockprotec",
   "version": "1.0.0",
-  "description": "",
+  "description": "Application web de gestion de stock simple et efficace, conçue pour la Protection Civile.  \r Fonctionne en local avec enregistrement automatique des données sur le serveur dès qu'une modification est faite.",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
