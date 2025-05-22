@@ -42,6 +42,10 @@ Pas de dépendance externe nécessaire, sauf **Node.js** installé sur ta machin
 node server.js
 ```
 
+OU
+
+Lancer le `START.bat`
+
 > Le serveur démarre sur : [http://localhost:3000](http://localhost:3000)
 
 ### 3. Utiliser l'application
