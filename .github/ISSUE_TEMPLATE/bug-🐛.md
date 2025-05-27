@@ -2,7 +2,7 @@
 name: "Bug \U0001F41B"
 about: Créez un rapport pour nous aider à nous améliorer
 title: ''
-labels: bug
+labels: bug, enhancement
 assignees: userzfr
 
 ---
