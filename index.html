@@ -1,38 +1,34 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestion de stock - Protection Civile</title>
-  <link rel="icon" ref="favicon.ico">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <style>
     body { padding: 20px; }
-    .alerte { background-color: #ffdddd !important; }
-    .critique, .expiré { animation: clignote 1s infinite alternate; }
-    .critique { background-color: #f8d7da !important; }
-    .expiré { background-color: #fff3cd !important; }
-    .code-barre-img svg { max-width: 100%; height: 50px; }
-    .code-barre-img { max-width: 200px; word-break: break-all; }
+    .critique { background-color: #f8d7da !important; animation: clignote 1s infinite alternate; }
+    .expiré { background-color: #fff3cd !important; animation: clignote 1s infinite alternate; }
     @keyframes clignote {
       from { background-color: #ff1010; }
       to { background-color: #ffb9b9; }
     }
-    .btn-warning-clignote {
-      animation: clignote 1s infinite alternate;
-    }
+    .btn-warning-clignote { animation: clignote 1s infinite alternate; }
+    .code-barre-img svg { max-width: 100%; height: 50px; }
+    .code-barre-img { max-width: 200px; word-break: break-word; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1 class="mb-4">📦 Gestion de Stock - Protection Civile</h1>
+
     <div class="mb-3 d-flex gap-2 flex-wrap">
       <button class="btn btn-success" onclick="ajouterProduit()">➕ Ajouter un produit</button>
-      <input id="searchInput" class="form-control w-auto" type="text" placeholder="🔎 Recherche code-barres" oninput="rafraichirTableau()" />
+      <input id="searchInput" class="form-control w-auto" type="text" placeholder="🔎 Recherche code-barres" oninput="rafraichirTableau()">
     </div>
+    <p class="text-muted small">⚠️ Pensez à passer votre clavier en QWERTY pour scanner correctement les codes-barres.</p>
 
     <div id="notification" class="notification"></div>
 
@@ -63,6 +59,7 @@
 
   <script>
     let stock = [];
+    const localVersion = "V.4";
 
     async function chargerStock() {
       const res = await fetch('/donnees.json');
@@ -105,62 +102,10 @@
         existant.quantite += quantite;
         existant.controle = controle;
       } else {
-        stock.push({ code, nom, lot, peremption, controle, quantite });
+        stock.push({ code, nom, lot, peremption, controle, quantite, etat: "rentré" });
       }
       sauvegarderServeur();
       rafraichirTableau();
-    }
-
-    function rafraichirTableau() {
-      const search = document.getElementById("searchInput").value.toLowerCase();
-      const tbody = document.querySelector("#stockTable tbody");
-      tbody.innerHTML = "";
-      const now = new Date();
-
-      stock.forEach((item, index) => {
-        if (search && !item.code.toLowerCase().includes(search)) return;
-
-        const tr = document.createElement("tr");
-        const peremption = item.peremption ? new Date(item.peremption) : null;
-        const controle = item.controle ? new Date(item.controle) : null;
-        const joursPeremption = peremption ? daysBetween(now, peremption) : Infinity;
-        const joursControle = controle ? daysBetween(controle, now) : Infinity;
-
-        let classe = "";
-        let alerteBtn = "";
-        if (joursPeremption < 0 || joursControle > 30) {
-          classe = "critique";
-          alerteBtn = `<button class="btn btn-danger btn-sm btn-warning-clignote" disabled>⚠️</button>`;
-        } else if (joursPeremption < 30 || joursControle > 20) {
-          classe = "expiré";
-          alerteBtn = `<button class="btn btn-warning btn-sm btn-warning-clignote" disabled>⚠️</button>`;
-        }
-
-        tr.className = classe;
-        tr.innerHTML = `
-          <td><div class="code-barre-img">${afficherCodeBarreSvg(item.code)}<div class="small">${item.code}</div></div></td>
-          <td>${item.nom}</td>
-          <td>${item.lot}</td>
-          <td>${item.peremption || "-"}</td>
-          <td>${item.controle || "-"}</td>
-          <td>${item.quantite}</td>
-          <td>
-            ${alerteBtn}
-            <button class="btn btn-sm btn-secondary me-1" onclick="modifierProduit(${index})">✏️</button>
-            <button class="btn btn-sm btn-info me-1" onclick="controlerProduit(${index})">🕵️</button>
-            <button class="btn btn-sm btn-danger" onclick="supprimer(${index})">🗑️</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function supprimer(index) {
-      if (confirm("Supprimer ce produit ?")) {
-        stock.splice(index, 1);
-        sauvegarderServeur();
-        rafraichirTableau();
-      }
     }
 
     function modifierProduit(index) {
@@ -185,13 +130,76 @@
       rafraichirTableau();
     }
 
-    function daysBetween(d1, d2) {
-      return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+    function supprimer(index) {
+      const code = stock[index].code;
+      if (confirm("Supprimer ce produit ?")) {
+        fetch(`/supprimer/${encodeURIComponent(code)}`, { method: "DELETE" })
+         .then(res => {
+            if (res.ok) {
+              stock.splice(index, 1);
+              rafraichirTableau();
+            } else {
+              alert("Erreur lors de la suppression en base.");
+            }
+         });
+      }
     }
 
-    chargerStock();
 
-    const localVersion = "V.3.6"; // À modifier à chaque nouvelle version
+    function changerEtat(index) {
+      const produit = stock[index];
+      produit.etat = produit.etat === "sorti" ? "rentré" : "sorti";
+      sauvegarderServeur();
+      rafraichirTableau();
+    }
+
+    function rafraichirTableau() {
+      const search = document.getElementById("searchInput").value.toLowerCase();
+      const tbody = document.querySelector("#stockTable tbody");
+      tbody.innerHTML = "";
+      const now = new Date();
+
+      stock.forEach((item, index) => {
+        if (search && !item.code.toLowerCase().includes(search)) return;
+
+        const peremption = item.peremption ? new Date(item.peremption) : null;
+        const controle = item.controle ? new Date(item.controle) : null;
+        const joursPeremption = peremption ? Math.floor((peremption - now) / (1000 * 60 * 60 * 24)) : Infinity;
+        const joursControle = controle ? Math.floor((now - controle) / (1000 * 60 * 60 * 24)) : Infinity;
+
+        let classe = "";
+        let alerteBtn = "";
+        if (joursPeremption < 0 || joursControle > 30) {
+          classe = "critique";
+          alerteBtn = `<button class="btn btn-danger btn-sm btn-warning-clignote" disabled title="Produit à surveiller">⚠️</button>`;
+        } else if (joursPeremption < 30 || joursControle > 20) {
+          classe = "expiré";
+          alerteBtn = `<button class="btn btn-warning btn-sm btn-warning-clignote" disabled title="Produit bientôt périmé ou à contrôler">⚠️</button>`;
+        }
+
+        const row = `
+          <tr class="${classe}">
+            <td><div class="code-barre-img">${afficherCodeBarreSvg(item.code)}<div class="small">${item.code}</div></div></td>
+            <td>${item.nom}</td>
+            <td>${item.lot}</td>
+            <td>${item.peremption}</td>
+            <td>${item.controle}</td>
+            <td>${item.quantite}</td>
+            <td>
+              ${alerteBtn}
+              <button class="btn btn-sm btn-${item.etat === 'sorti' ? 'danger' : 'success'} me-1" title="Changer l'état (Sorti/Rentré)" onclick="changerEtat(${index})">
+                ${item.etat === 'sorti' ? '📥' : '📤'}
+              </button>
+              
+              <button class="btn btn-sm btn-secondary me-1" onclick="modifierProduit(${index})" title="Modifier">✏️</button>
+              <button class="btn btn-sm btn-info me-1" onclick="controlerProduit(${index})" title="Mettre à jour la date de contrôle">🕵️</button>
+              <button class="btn btn-sm btn-danger" onclick="supprimer(${index})" title="Supprimer">🗑️</button>
+            </td>
+          </tr>`;
+
+        tbody.insertAdjacentHTML('beforeend', row);
+      });
+    }
 
     async function checkLatestVersion() {
       try {
@@ -199,7 +207,7 @@
         if (!response.ok) throw new Error("Erreur HTTP");
 
         const data = await response.json();
-        const latestVersion = data.tag_name.replace(/^v/, ""); // Supprime le "v" si présent
+        const latestVersion = data.tag_name.replace(/^v/, "");
 
         const versionInfo = document.getElementById("version-info");
 
@@ -214,7 +222,8 @@
       }
     }
 
-  checkLatestVersion();
+    checkLatestVersion();
+    window.onload = chargerStock;
   </script>
 </body>
 </html>
