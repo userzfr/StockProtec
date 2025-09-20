@@ -1,229 +1,294 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestion de stock - Protection Civile</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-  <style>
-    body { padding: 20px; }
-    .critique { background-color: #f8d7da !important; animation: clignote 1s infinite alternate; }
-    .expiré { background-color: #fff3cd !important; animation: clignote 1s infinite alternate; }
-    @keyframes clignote {
-      from { background-color: #ff1010; }
-      to { background-color: #ffb9b9; }
-    }
-    .btn-warning-clignote { animation: clignote 1s infinite alternate; }
-    .code-barre-img svg { max-width: 100%; height: 50px; }
-    .code-barre-img { max-width: 200px; word-break: break-word; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>StockProtec - Gestion de stock</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<style>
+  body{padding:20px;}
+  .critique{background:#f8d7da!important;animation:clignote 1s infinite alternate;}
+  .expire{background:#f8d7da!important;}
+  .expire-proche{background:#fff3cd!important;}
+  @keyframes clignote{from{background:#ff1010}to{background:#ffb9b9}}
+  .banner{padding:12px;color:#fff;display:flex;justify-content:space-between;align-items:center}
+  .banner .msg{font-weight:600}
+  .code-barre-img svg{max-width:100%;height:40px}
+  .code-barre-img{max-width:200px;word-break:break-word}
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1 class="mb-4">📦 Gestion de Stock - Protection Civile</h1>
+<div class="container">
+  <h1 class="mb-3">📦 StockProtec - Gestion de stock</h1>
 
-    <div class="mb-3 d-flex gap-2 flex-wrap">
-      <button class="btn btn-success" onclick="ajouterProduit()">➕ Ajouter un produit</button>
-      <input id="searchInput" class="form-control w-auto" type="text" placeholder="🔎 Recherche code-barres" oninput="rafraichirTableau()">
-    </div>
-    <p class="text-muted small">⚠️ Pensez à passer votre clavier en QWERTY pour scanner correctement les codes-barres.</p>
+  <div id="alert-banner" class="mb-3" style="display:none"></div>
 
-    <div id="notification" class="notification"></div>
-
-    <table class="table table-bordered table-striped" id="stockTable">
-      <thead class="table-dark">
-        <tr>
-          <th>Code-barres</th>
-          <th>Nom</th>
-          <th>Lot</th>
-          <th>Date Péremption</th>
-          <th>Date Contrôle</th>
-          <th>Quantité</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+  <div class="mb-3 d-flex gap-2 flex-wrap align-items-center">
+    <button class="btn btn-success" onclick="ajouterProduit()">➕ Ajouter un produit</button>
+    <select id="filterCategory" class="form-select w-auto">
+      <option value="">Toutes catégories</option>
+    </select>
+    <input id="searchInput" class="form-control w-auto" type="text" placeholder="🔎 Recherche code-barres" oninput="rafraichirTableau()">
   </div>
+  <p class="text-muted small">⚠️ Pensez à passer votre clavier en QWERTY pour scanner correctement les codes-barres.</p>
 
-  <footer class="text-center mt-5 text-muted">
+  <div id="catalogue"></div>
+
+  <footer class="text-center mt-4 text-muted">
     <hr>
-    <p>
-      Fait avec ❤️ par Mathieu.M • <a href="CGU.pdf" target="_blank">Conditions d'utilisation</a>
-      <br>
-      <span id="version-info">Version : chargement...</span>
-    </p>
+    <p>Fait avec ❤️ par Mathieu.M • <a href="CGU.pdf" target="_blank">Conditions d'utilisation</a><br>
+    <span id="version-info">Version : chargement...</span></p>
   </footer>
+</div>
 
-  <script>
-    let stock = [];
-    const localVersion = "V.4.1";
+<!-- Modal for editing location -->
+<div class="modal fade" id="locationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Modifier emplacement</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label">Catégorie</label>
+          <select id="modalCategory" class="form-select"></select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Sous-catégorie</label>
+          <select id="modalSub" class="form-select"></select>
+        </div>
+        <input type="hidden" id="modalIndex" />
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="button" class="btn btn-primary" onclick="saveLocation()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-    async function chargerStock() {
-      const res = await fetch('/donnees.json');
-      stock = await res.json();
-      rafraichirTableau();
-    }
+<script>
+let stock = [];
+let categories = {};
+const localVersion = "V.3.6";
 
-    function sauvegarderServeur() {
-      fetch('/sauvegarder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(stock)
-      });
-    }
+async function loadCategories(){
+  try{
+    const res = await fetch('/categories.json');
+    categories = await res.json();
+    const sel = document.getElementById('filterCategory');
+    Object.keys(categories).forEach(cat=>{
+      const opt = document.createElement('option');
+      opt.value = cat; opt.textContent = cat;
+      sel.appendChild(opt);
+    });
+  }catch(e){
+    console.error('Erreur categories',e);
+  }
+}
 
-    function genererCodeCourt() {
-      return "INV-" + Math.floor(100000 + Math.random() * 900000);
-    }
+async function chargerStock(){
+  const res = await fetch('/donnees.json');
+  stock = await res.json();
+  rafraichirTableau();
+  checkBanner();
+}
 
-    function afficherCodeBarreSvg(code) {
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      JsBarcode(svg, code, { format: "CODE128", width: 2, height: 30, displayValue: false });
-      return svg.outerHTML;
-    }
+function sauvegarderServeur(){
+  fetch('/sauvegarder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(stock)});
+}
 
-    function ajouterProduit() {
-      let code = prompt("Code-barres (laisser vide pour générer automatiquement) :");
-      if (!code) {
-        code = genererCodeCourt();
-        alert("Code généré : " + code);
-      }
-      const nom = prompt("Nom du produit :");
-      const lot = prompt("Numéro de lot :");
-      const peremption = prompt("Date de péremption (YYYY-MM-DD) :");
-      const quantite = parseInt(prompt("Quantité :")) || 0;
-      const controle = new Date().toISOString().split("T")[0];
+function afficherCodeBarreSvg(code){
+  const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+  JsBarcode(svg, code, {format:"CODE128", width:2, height:30, displayValue:false});
+  return svg.outerHTML;
+}
 
-      const existant = stock.find(p => p.code === code);
-      if (existant) {
-        existant.quantite += quantite;
-        existant.controle = controle;
-      } else {
-        stock.push({ code, nom, lot, peremption, controle, quantite, etat: "rentré" });
-      }
-      sauvegarderServeur();
-      rafraichirTableau();
-    }
+function ajouterProduit(){
+  let code = prompt("Code-barres (laisser vide pour générer automatiquement) :");
+  if(!code){ code = "INV-"+Math.floor(100000+Math.random()*900000); alert("Code généré : "+code); }
+  const nom = prompt("Nom du produit :");
+  const lot = prompt("Numéro de lot :");
+  const peremption = prompt("Date de péremption (YYYY-MM-DD) :");
+  const quantite = parseInt(prompt("Quantité :"))||0;
+  const controle = new Date().toISOString().split("T")[0];
+  stock.push({code,nom,lot,peremption,controle,quantite,etat:'rentré',categorie:null,sousCategorie:null});
+  sauvegarderServeur(); rafraichirTableau(); checkBanner();
+}
 
-    function modifierProduit(index) {
-      const p = stock[index];
-      const nom = prompt("Nom :", p.nom);
-      const lot = prompt("Lot :", p.lot);
-      const peremption = prompt("Péremption (YYYY-MM-DD) :", p.peremption);
-      const quantite = prompt("Quantité :", p.quantite);
+function modifierProduit(index){
+  const p = stock[index];
+  const nom = prompt("Nom :",p.nom);
+  const lot = prompt("Lot :",p.lot);
+  const peremption = prompt("Péremption (YYYY-MM-DD) :",p.peremption);
+  const quantite = prompt("Quantité :",p.quantite);
+  if(nom) p.nom = nom; if(lot) p.lot = lot; if(peremption) p.peremption = peremption; if(quantite) p.quantite = parseInt(quantite);
+  sauvegarderServeur(); rafraichirTableau(); checkBanner();
+}
 
-      if (nom) p.nom = nom;
-      if (lot) p.lot = lot;
-      if (peremption) p.peremption = peremption;
-      if (quantite) p.quantite = parseInt(quantite);
+function controlerProduit(index){ stock[index].controle = new Date().toISOString().split("T")[0]; sauvegarderServeur(); rafraichirTableau(); checkBanner(); }
 
-      sauvegarderServeur();
-      rafraichirTableau();
-    }
+function supprimer(index){
+  const code = stock[index].code;
+  if(confirm("Supprimer ce produit ?")){
+    fetch(`/supprimer/${encodeURIComponent(code)}`,{method:'DELETE'}).then(res=>{
+      if(res.ok){ stock.splice(index,1); rafraichirTableau(); checkBanner(); }
+      else alert("Erreur suppression");
+    });
+  }
+}
 
-    function controlerProduit(index) {
-      stock[index].controle = new Date().toISOString().split("T")[0];
-      sauvegarderServeur();
-      rafraichirTableau();
-    }
+function changerEtat(index){ const p = stock[index]; p.etat = p.etat === 'sorti' ? 'rentré' : 'sorti'; sauvegarderServeur(); rafraichirTableau(); checkBanner(); }
 
-    function supprimer(index) {
-      const code = stock[index].code;
-      if (confirm("Supprimer ce produit ?")) {
-        fetch(`/supprimer/${encodeURIComponent(code)}`, { method: "DELETE" })
-         .then(res => {
-            if (res.ok) {
-              stock.splice(index, 1);
-              rafraichirTableau();
-            } else {
-              alert("Erreur lors de la suppression en base.");
-            }
-         });
-      }
-    }
+function daysBetween(d1,d2){ return Math.floor((d2-d1)/(1000*60*60*24)); }
 
+function rafraichirTableau(){
+  const cont = document.getElementById('catalogue');
+  cont.innerHTML='';
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const filterCat = document.getElementById('filterCategory').value;
+  // group by category -> subcategory
+  const grouped = {};
+  stock.forEach((item, idx)=>{
+    if(search && !(item.code||'').toLowerCase().includes(search)) return;
+    const cat = item.categorie || "Sans catégorie";
+    if(filterCat && filterCat !== cat) return;
+    const sub = item.sousCategorie || "Général";
+    if(!grouped[cat]) grouped[cat] = {};
+    if(!grouped[cat][sub]) grouped[cat][sub] = [];
+    grouped[cat][sub].push({item, idx});
+  });
 
-    function changerEtat(index) {
-      const produit = stock[index];
-      produit.etat = produit.etat === "sorti" ? "rentré" : "sorti";
-      sauvegarderServeur();
-      rafraichirTableau();
-    }
-
-    function rafraichirTableau() {
-      const search = document.getElementById("searchInput").value.toLowerCase();
-      const tbody = document.querySelector("#stockTable tbody");
-      tbody.innerHTML = "";
-      const now = new Date();
-
-      stock.forEach((item, index) => {
-        if (search && !item.code.toLowerCase().includes(search)) return;
-
+  Object.keys(grouped).forEach(cat=>{
+    const h = document.createElement('h4'); h.textContent = cat; cont.appendChild(h);
+    Object.keys(grouped[cat]).forEach(sub=>{
+      const sh = document.createElement('h6'); sh.textContent = '> '+sub; sh.className='ms-2'; cont.appendChild(sh);
+      const table = document.createElement('table'); table.className='table table-bordered';
+      const thead = document.createElement('thead'); thead.className='table-dark';
+      thead.innerHTML = `<tr><th>Code-barres</th><th>Nom</th><th>Lot</th><th>Péremption</th><th>Contrôle</th><th>Quantité</th><th>Actions</th></tr>`;
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      grouped[cat][sub].forEach(({item, idx})=>{
         const peremption = item.peremption ? new Date(item.peremption) : null;
         const controle = item.controle ? new Date(item.controle) : null;
-        const joursPeremption = peremption ? Math.floor((peremption - now) / (1000 * 60 * 60 * 24)) : Infinity;
-        const joursControle = controle ? Math.floor((now - controle) / (1000 * 60 * 60 * 24)) : Infinity;
-
-        let classe = "";
-        let alerteBtn = "";
-        if (joursPeremption < 0 || joursControle > 30) {
-          classe = "critique";
-          alerteBtn = `<button class="btn btn-danger btn-sm btn-warning-clignote" disabled title="Produit à surveiller">⚠️</button>`;
-        } else if (joursPeremption < 30 || joursControle > 20) {
-          classe = "expiré";
-          alerteBtn = `<button class="btn btn-warning btn-sm btn-warning-clignote" disabled title="Produit bientôt périmé ou à contrôler">⚠️</button>`;
-        }
-
-        const row = `
-          <tr class="${classe}">
-            <td><div class="code-barre-img">${afficherCodeBarreSvg(item.code)}<div class="small">${item.code}</div></div></td>
-            <td>${item.nom}</td>
-            <td>${item.lot}</td>
-            <td>${item.peremption}</td>
-            <td>${item.controle}</td>
-            <td>${item.quantite}</td>
-            <td>
-              ${alerteBtn}
-              <button class="btn btn-sm btn-${item.etat === 'sorti' ? 'danger' : 'success'} me-1" title="Changer l'état (Sorti/Rentré)" onclick="changerEtat(${index})">
-                ${item.etat === 'sorti' ? '📥' : '📤'}
-              </button>
-              
-              <button class="btn btn-sm btn-secondary me-1" onclick="modifierProduit(${index})" title="Modifier">✏️</button>
-              <button class="btn btn-sm btn-info me-1" onclick="controlerProduit(${index})" title="Mettre à jour la date de contrôle">🕵️</button>
-              <button class="btn btn-sm btn-danger" onclick="supprimer(${index})" title="Supprimer">🗑️</button>
-            </td>
-          </tr>`;
-
-        tbody.insertAdjacentHTML('beforeend', row);
+        const now = new Date();
+        const joursPeremption = peremption ? daysBetween(now, peremption) : Infinity;
+        const joursControle = controle ? daysBetween(controle, now) : Infinity;
+        let classe = '';
+        let alerteBtn = '';
+        if(joursPeremption < 0 || joursControle > 30){ classe='expire'; alerteBtn = `<button class="btn btn-danger btn-sm btn-warning-clignote" disabled title="Produit à surveiller">⚠️</button>`;}
+        else if(joursPeremption < 30 || joursControle > 20){ classe='expire-proche'; alerteBtn = `<button class="btn btn-warning btn-sm btn-warning-clignote" disabled title="Produit bientôt périmé ou à contrôler">⚠️</button>`;}
+        const tr = document.createElement('tr'); tr.className = classe;
+        tr.innerHTML = `
+          <td><div class="code-barre-img">${afficherCodeBarreSvg(item.code)}<div class="small">${item.code}</div></div></td>
+          <td>${item.nom||''}</td>
+          <td>${item.lot||''}</td>
+          <td>${item.peremption||'-'}</td>
+          <td>${item.controle||'-'}</td>
+          <td>${item.quantite||0}</td>
+          <td>
+            ${alerteBtn}
+            <button class="btn btn-sm btn-${item.etat === 'sorti' ? 'danger' : 'success'} me-1" title="Changer l'état (Sorti/Rentré)" onclick="changerEtat(${idx})">${item.etat === 'sorti' ? '📤' : '📥'}</button>
+            <button class="btn btn-sm btn-secondary me-1" onclick="modifierProduit(${idx})" title="Modifier">✏️</button>
+            <button class="btn btn-sm btn-info me-1" onclick="controlerProduit(${idx})" title="Mettre à jour la date de contrôle">🕵️</button>
+            <button class="btn btn-sm btn-warning me-1" onclick="openLocationModal(${idx})" title="Modifier emplacement">📍</button>
+            <button class="btn btn-sm btn-danger" onclick="supprimer(${idx})" title="Supprimer">🗑️</button>
+          </td>`;
+        tbody.appendChild(tr);
       });
-    }
+      table.appendChild(tbody);
+      cont.appendChild(table);
+    });
+  });
+}
 
-    async function checkLatestVersion() {
-      try {
-        const response = await fetch("https://api.github.com/repos/userzfr/StockProtec/releases/latest");
-        if (!response.ok) throw new Error("Erreur HTTP");
+function openLocationModal(index){
+  const modal = new bootstrap.Modal(document.getElementById('locationModal'));
+  const catSel = document.getElementById('modalCategory');
+  const subSel = document.getElementById('modalSub');
+  catSel.innerHTML=''; subSel.innerHTML='';
+  Object.keys(categories).forEach(cat=>{
+    const opt = document.createElement('option'); opt.value=cat; opt.textContent=cat; catSel.appendChild(opt);
+  });
+  const p = stock[index];
+  if(p.categorie) catSel.value = p.categorie;
+  populateSub(catSel.value);
+  if(p.sousCategorie) subSel.value = p.sousCategorie;
+  document.getElementById('modalIndex').value = index;
+  catSel.onchange = ()=> populateSub(catSel.value);
+  modal.show();
+}
 
-        const data = await response.json();
-        const latestVersion = data.tag_name.replace(/^v/, "");
+function populateSub(cat){
+  const subSel = document.getElementById('modalSub'); subSel.innerHTML='';
+  const subs = categories[cat]||["Général"];
+  subs.forEach(s=>{ const o = document.createElement('option'); o.value=s; o.textContent=s; subSel.appendChild(o); });
+}
 
-        const versionInfo = document.getElementById("version-info");
+function saveLocation(){
+  const idx = parseInt(document.getElementById('modalIndex').value,10);
+  const cat = document.getElementById('modalCategory').value;
+  const sub = document.getElementById('modalSub').value;
+  stock[idx].categorie = cat; stock[idx].sousCategorie = sub;
+  sauvegarderServeur(); rafraichirTableau(); checkBanner();
+  bootstrap.Modal.getInstance(document.getElementById('locationModal')).hide();
+}
 
-        if (localVersion === latestVersion) {
-          versionInfo.textContent = `Version : ${localVersion} (A jour)`;
-        } else {
-          versionInfo.innerHTML = `Version : ${localVersion} <span style="color: red;">(⚠️ Mise à jour disponible : ${latestVersion})</span>`;
-        }
-      } catch (err) {
-        console.error("Erreur lors de la récupération de la version :", err);
-        document.getElementById("version-info").textContent = `Version : ${localVersion} (impossible de vérifier les mises à jour)`;
-      }
-    }
+// Banner logic
+let bannerDismissed = false;
+function checkBanner(){
+  if(bannerDismissed) return;
+  const now = new Date();
+  const perimes = [], controlesExp = [], bientot=[], controlesSoon=[];
+  stock.forEach(item=>{
+    const peremption = item.peremption ? new Date(item.peremption) : null;
+    const controle = item.controle ? new Date(item.controle) : null;
+    const joursPeremption = peremption ? daysBetween(now, peremption) : Infinity;
+    const joursControle = controle ? daysBetween(controle, now) : Infinity;
+    if(joursPeremption < 0) perimes.push(item);
+    else if(joursPeremption < 30) bientot.push(item);
+    if(joursControle > 30) controlesExp.push(item);
+    else if(joursControle > 20) controlesSoon.push(item);
+  });
+  const banner = document.getElementById('alert-banner');
+  if(perimes.length || controlesExp.length){
+    // red
+    let msgs = [];
+    perimes.forEach(it=> msgs.push(`${it.code} : périmé`));
+    controlesExp.forEach(it=> msgs.push(`${it.code} : contrôle dépassé`));
+    banner.style.display='flex'; banner.style.background='#c82333'; banner.className='banner mb-3';
+    banner.innerHTML = `<div class="msg">⚠️ ${msgs.join(' · ')}</div><div><button class="btn btn-light btn-sm" onclick="dismissBanner()">Ignorer</button></div>`;
+  } else if(bientot.length || controlesSoon.length){
+    let msgs = [];
+    bientot.forEach(it=> msgs.push(`${it.code} : bientôt périmé`));
+    controlesSoon.forEach(it=> msgs.push(`${it.code} : contrôle bientôt`));
+    banner.style.display='flex'; banner.style.background='#ffb000'; banner.className='banner mb-3';
+    banner.innerHTML = `<div class="msg">⚠️ ${msgs.join(' · ')}</div><div><button class="btn btn-light btn-sm" onclick="dismissBanner()">Ignorer</button></div>`;
+  } else {
+    banner.style.display='none';
+  }
+}
+function dismissBanner(){ bannerDismissed = true; document.getElementById('alert-banner').style.display='none'; }
 
-    checkLatestVersion();
-    window.onload = chargerStock;
-  </script>
+// Version check (kept from previous)
+async function checkLatestVersion(){
+  try{
+    const response = await fetch("https://api.github.com/repos/userzfr/StockProtec/releases/latest");
+    if(!response.ok) throw new Error("Erreur HTTP");
+    const data = await response.json();
+    const latestVersion = data.tag_name.replace(/^v/,"");
+    const versionInfo = document.getElementById("version-info");
+    if(localVersion === latestVersion) versionInfo.textContent = `Version : ${localVersion} (A jour)`;
+    else versionInfo.innerHTML = `Version : ${localVersion} <span style="color:red">(⚠️ Mise à jour disponible : ${latestVersion})</span>`;
+  }catch(e){
+    document.getElementById("version-info").textContent = `Version : ${localVersion} (impossible de vérifier les mises à jour)`;
+  }
+}
+
+window.addEventListener('load', async()=>{ await loadCategories(); await chargerStock(); checkLatestVersion(); });
+</script>
 </body>
 </html>
