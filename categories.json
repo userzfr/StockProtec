@@ -1,0 +1,19 @@
+{
+  "Opérationnel": [
+    "Lot A",
+    "Lot B"
+  ],
+  "Vêtement": [
+    "Pantalon",
+    "Veste"
+  ],
+  "Oxygénothérapie": [
+    "O2",
+    "Masques",
+    "Aspirateur"
+  ],
+  "Matériels divers": [
+    "Brancards",
+    "Immobilisation"
+  ]
+}
