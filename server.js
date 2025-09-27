@@ -2,10 +2,18 @@ const express = require("express");
 const fs = require("fs");
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = 3000;
 
+// Apply a rate limit to all requests
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100                  // limit each IP to 100 requests per windowMs
+});
+
+app.use(limiter);
 app.use(express.json());
 app.use(express.static(__dirname));
 
