@@ -15,7 +15,7 @@ const limiter = rateLimit({
 
 app.use(limiter);
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, "public")));
 
 const DB_PATH = path.join(__dirname, "donnees.db");
 const db = new sqlite3.Database(DB_PATH);
