@@ -23,10 +23,23 @@
 <div class="container">
   <h1 class="mb-3">📦 StockProtec - Gestion de stock</h1>
 
+  <div id="login-section" class="mb-3">
+    <form id="loginForm" class="d-flex gap-2 flex-wrap align-items-center">
+      <input id="loginUser" class="form-control w-auto" type="text" placeholder="Nom d'utilisateur" required>
+      <input id="loginPass" class="form-control w-auto" type="password" placeholder="Mot de passe" required>
+      <button type="submit" class="btn btn-primary">Connexion</button>
+    </form>
+    <div id="loginError" class="text-danger mt-2" style="display:none"></div>
+  </div>
+  <div id="user-info" class="mb-3" style="display:none">
+    Connecté en tant que <span id="userName"></span> (<span id="userRole"></span>)
+    <button class="btn btn-outline-secondary btn-sm ms-2" onclick="logout()">Déconnexion</button>
+  </div>
+
   <div id="alert-banner" class="mb-3" style="display:none"></div>
 
   <div class="mb-3 d-flex gap-2 flex-wrap align-items-center">
-    <button class="btn btn-success" onclick="ajouterProduit()">➕ Ajouter un produit</button>
+    <button class="btn btn-success" id="addBtn" onclick="ajouterProduit()">➕ Ajouter un produit</button>
     <select id="filterCategory" class="form-select w-auto">
       <option value="">Toutes catégories</option>
     </select>
@@ -73,7 +86,8 @@
 <script>
 let stock = [];
 let categories = {};
-const localVersion = "V.3.6";
+const localVersion = "V.5";
+let user = null; // {username, role, token}
 
 async function loadCategories(){
   try{
@@ -85,6 +99,8 @@ async function loadCategories(){
       opt.value = cat; opt.textContent = cat;
       sel.appendChild(opt);
     });
+      // Ajout du gestionnaire d'événement pour filtrer par catégorie
+      sel.onchange = rafraichirTableau;
   }catch(e){
     console.error('Erreur categories',e);
   }
@@ -95,10 +111,18 @@ async function chargerStock(){
   stock = await res.json();
   rafraichirTableau();
   checkBanner();
+  updateUIByRole();
 }
 
 function sauvegarderServeur(){
-  fetch('/sauvegarder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(stock)});
+  if(!user || !user.token) return alert("Non authentifié");
+  fetch('/sauvegarder',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+user.token},
+    body:JSON.stringify(stock)
+  }).then(res=>{
+    if(!res.ok) alert("Erreur sauvegarde (droits ou serveur)");
+  });
 }
 
 function afficherCodeBarreSvg(code){
@@ -133,10 +157,14 @@ function controlerProduit(index){ stock[index].controle = new Date().toISOString
 
 function supprimer(index){
   const code = stock[index].code;
+  if(!user || !user.token) return alert("Non authentifié");
   if(confirm("Supprimer ce produit ?")){
-    fetch(`/supprimer/${encodeURIComponent(code)}`,{method:'DELETE'}).then(res=>{
+    fetch(`/supprimer/${encodeURIComponent(code)}`,{
+      method:'DELETE',
+      headers:{'Authorization':'Bearer '+user.token}
+    }).then(res=>{
       if(res.ok){ stock.splice(index,1); rafraichirTableau(); checkBanner(); }
-      else alert("Erreur suppression");
+      else alert("Erreur suppression (droits ou serveur)");
     });
   }
 }
@@ -147,31 +175,43 @@ function daysBetween(d1,d2){ return Math.floor((d2-d1)/(1000*60*60*24)); }
 
 function rafraichirTableau(){
   const cont = document.getElementById('catalogue');
-  cont.innerHTML='';
+  cont.innerHTML = '';
   const search = document.getElementById('searchInput').value.toLowerCase();
   const filterCat = document.getElementById('filterCategory').value;
   // group by category -> subcategory
   const grouped = {};
-  stock.forEach((item, idx)=>{
-    if(search && !(item.code||'').toLowerCase().includes(search)) return;
+  stock.forEach((item, idx) => {
+    if (search && !(item.code || '').toLowerCase().includes(search)) return;
     const cat = item.categorie || "Sans catégorie";
-    if(filterCat && filterCat !== cat) return;
+    if (filterCat && filterCat !== cat) return;
     const sub = item.sousCategorie || "Général";
-    if(!grouped[cat]) grouped[cat] = {};
-    if(!grouped[cat][sub]) grouped[cat][sub] = [];
-    grouped[cat][sub].push({item, idx});
+    if (!grouped[cat]) grouped[cat] = {};
+    if (!grouped[cat][sub]) grouped[cat][sub] = [];
+    grouped[cat][sub].push({ item, idx });
   });
 
-  Object.keys(grouped).forEach(cat=>{
+  // Si filtrage par catégorie et aucun produit trouvé, afficher le message centré
+  if (filterCat && Object.keys(grouped).length === 0) {
+    const msg = document.createElement('div');
+    msg.textContent = 'Cette catégorie est vide';
+    msg.style.textAlign = 'center';
+    msg.style.margin = '40px auto';
+    msg.style.fontSize = '1.5rem';
+    msg.style.color = '#888';
+    cont.appendChild(msg);
+    return;
+  }
+
+  Object.keys(grouped).forEach(cat => {
     const h = document.createElement('h4'); h.textContent = cat; cont.appendChild(h);
-    Object.keys(grouped[cat]).forEach(sub=>{
-      const sh = document.createElement('h6'); sh.textContent = '> '+sub; sh.className='ms-2'; cont.appendChild(sh);
-      const table = document.createElement('table'); table.className='table table-bordered';
-      const thead = document.createElement('thead'); thead.className='table-dark';
+    Object.keys(grouped[cat]).forEach(sub => {
+      const sh = document.createElement('h6'); sh.textContent = '> ' + sub; sh.className = 'ms-2'; cont.appendChild(sh);
+      const table = document.createElement('table'); table.className = 'table table-bordered';
+      const thead = document.createElement('thead'); thead.className = 'table-dark';
       thead.innerHTML = `<tr><th>Code-barres</th><th>Nom</th><th>Lot</th><th>Péremption</th><th>Contrôle</th><th>Quantité</th><th>Actions</th></tr>`;
       table.appendChild(thead);
       const tbody = document.createElement('tbody');
-      grouped[cat][sub].forEach(({item, idx})=>{
+      grouped[cat][sub].forEach(({ item, idx }) => {
         const peremption = item.peremption ? new Date(item.peremption) : null;
         const controle = item.controle ? new Date(item.controle) : null;
         const now = new Date();
@@ -179,24 +219,29 @@ function rafraichirTableau(){
         const joursControle = controle ? daysBetween(controle, now) : Infinity;
         let classe = '';
         let alerteBtn = '';
-        if(joursPeremption < 0 || joursControle > 30){ classe='expire'; alerteBtn = `<button class="btn btn-danger btn-sm btn-warning-clignote" disabled title="Produit à surveiller">⚠️</button>`;}
-        else if(joursPeremption < 30 || joursControle > 20){ classe='expire-proche'; alerteBtn = `<button class="btn btn-warning btn-sm btn-warning-clignote" disabled title="Produit bientôt périmé ou à contrôler">⚠️</button>`;}
+        if (joursPeremption < 0 || joursControle > 30) { classe = 'expire'; alerteBtn = `<button class="btn btn-danger btn-sm btn-warning-clignote" disabled title="Produit à surveiller">⚠️</button>`; }
+        else if (joursPeremption < 30 || joursControle > 20) { classe = 'expire-proche'; alerteBtn = `<button class="btn btn-warning btn-sm btn-warning-clignote" disabled title="Produit bientôt périmé ou à contrôler">⚠️</button>`; }
         const tr = document.createElement('tr'); tr.className = classe;
-        tr.innerHTML = `
-          <td><div class="code-barre-img">${afficherCodeBarreSvg(item.code)}<div class="small">${item.code}</div></div></td>
-          <td>${item.nom||''}</td>
-          <td>${item.lot||''}</td>
-          <td>${item.peremption||'-'}</td>
-          <td>${item.controle||'-'}</td>
-          <td>${item.quantite||0}</td>
-          <td>
-            ${alerteBtn}
+        let actions = `${alerteBtn}`;
+        if (user && user.role === 'admin') {
+          actions += `
             <button class="btn btn-sm btn-${item.etat === 'sorti' ? 'danger' : 'success'} me-1" title="Changer l'état (Sorti/Rentré)" onclick="changerEtat(${idx})">${item.etat === 'sorti' ? '📤' : '📥'}</button>
             <button class="btn btn-sm btn-secondary me-1" onclick="modifierProduit(${idx})" title="Modifier">✏️</button>
             <button class="btn btn-sm btn-info me-1" onclick="controlerProduit(${idx})" title="Mettre à jour la date de contrôle">🕵️</button>
             <button class="btn btn-sm btn-warning me-1" onclick="openLocationModal(${idx})" title="Modifier emplacement">📍</button>
             <button class="btn btn-sm btn-danger" onclick="supprimer(${idx})" title="Supprimer">🗑️</button>
-          </td>`;
+          `;
+        } else {
+          actions += `<span class='text-muted'>Accès limité</span>`;
+        }
+        tr.innerHTML = `
+          <td><div class="code-barre-img">${afficherCodeBarreSvg(item.code)}<div class="small">${item.code}</div></div></td>
+          <td>${item.nom || ''}</td>
+          <td>${item.lot || ''}</td>
+          <td>${item.peremption || '-'}</td>
+          <td>${item.controle || '-'}</td>
+          <td>${item.quantite || 0}</td>
+          <td>${actions}</td>`;
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
@@ -204,6 +249,66 @@ function rafraichirTableau(){
     });
   });
 }
+
+// Gestion connexion/déconnexion
+document.getElementById('loginForm').onsubmit = async function(e){
+  e.preventDefault();
+  const username = document.getElementById('loginUser').value;
+  const password = document.getElementById('loginPass').value;
+  try{
+    const res = await fetch('/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username,password})
+    });
+    if(!res.ok) throw new Error('Identifiants invalides');
+    const data = await res.json();
+    user = {username, role:data.role, token:data.token};
+    localStorage.setItem('stockprotec_user',JSON.stringify(user));
+    document.getElementById('login-section').style.display='none';
+    document.getElementById('user-info').style.display='block';
+    document.getElementById('userName').textContent = user.username;
+    document.getElementById('userRole').textContent = user.role;
+    await chargerStock();
+    updateUIByRole();
+    document.getElementById('loginError').style.display='none';
+  }catch(err){
+    document.getElementById('loginError').textContent = err.message;
+    document.getElementById('loginError').style.display='block';
+  }
+}
+
+function logout(){
+  user = null;
+  localStorage.removeItem('stockprotec_user');
+  document.getElementById('login-section').style.display='block';
+  document.getElementById('user-info').style.display='none';
+  updateUIByRole();
+  rafraichirTableau();
+}
+
+function updateUIByRole(){
+  const addBtn = document.getElementById('addBtn');
+  if(user && user.role === 'admin'){
+    addBtn.style.display = 'inline-block';
+  }else{
+    addBtn.style.display = 'none';
+  }
+}
+
+window.addEventListener('load',()=>{
+  const saved = localStorage.getItem('stockprotec_user');
+  if(saved){
+    try{
+      user = JSON.parse(saved);
+      document.getElementById('login-section').style.display='none';
+      document.getElementById('user-info').style.display='block';
+      document.getElementById('userName').textContent = user.username;
+      document.getElementById('userRole').textContent = user.role;
+    }catch(e){ user = null; }
+  }
+  updateUIByRole();
+});
 
 function openLocationModal(index){
   const modal = new bootstrap.Modal(document.getElementById('locationModal'));

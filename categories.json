@@ -1,11 +1,24 @@
 {
   "Opérationnel": [
     "Lot A",
-    "Lot B"
+    "Lot B",
+    "Lot C"
   ],
   "Vêtement": [
     "Pantalon",
-    "Veste"
+    "Veste",
+    "Parkas",
+    "Polos (Manches Courtes)",
+    "Polos (Manches Longues)",
+    "Polaires",
+    "Tee-Shirts",
+    "Pull Over",
+    "Casquettes FNPC",
+    "Ceintures",
+    "Ecussons de Manches",
+    "Badges",
+    "SoftSchell",
+    "Bande de fonction"
   ],
   "Oxygénothérapie": [
     "O2",

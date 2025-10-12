@@ -19,6 +19,28 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const DB_PATH = path.join(__dirname, "donnees.db");
 const db = new sqlite3.Database(DB_PATH);
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const JWT_SECRET = "stockprotec_secret_2025"; // À remplacer par une vraie clé en prod
+
+// Middleware pour vérifier le token et le rôle
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.sendStatus(401);
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+}
+
+function requireRole(role) {
+  return (req, res, next) => {
+    if (req.user.role !== role) return res.sendStatus(403);
+    next();
+  };
+}
 
 // Ensure schema and add missing columns if needed
 db.serialize(() => {
@@ -38,6 +60,19 @@ db.serialize(() => {
   db.run("ALTER TABLE stock ADD COLUMN etat TEXT DEFAULT 'rentré'", err => {});
   db.run("ALTER TABLE stock ADD COLUMN categorie TEXT", err => {});
   db.run("ALTER TABLE stock ADD COLUMN sousCategorie TEXT", err => {});
+
+  // Table users pour l'authentification
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT CHECK(role IN ('admin', 'user')) NOT NULL,
+    categorie TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  // Ajout des colonnes si la table existe déjà
+  db.run("ALTER TABLE users ADD COLUMN categorie TEXT", err => {});
+  db.run("ALTER TABLE users ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP", err => {});
 });
 
 app.get("/donnees.json", (req, res) => {
@@ -47,7 +82,7 @@ app.get("/donnees.json", (req, res) => {
   });
 });
 
-app.post("/sauvegarder", (req, res) => {
+app.post("/sauvegarder", authenticateToken, requireRole("admin"), (req, res) => {
   const data = req.body || [];
   db.serialize(() => {
     db.run("DELETE FROM stock", (err) => {
@@ -62,7 +97,7 @@ app.post("/sauvegarder", (req, res) => {
   });
 });
 
-app.delete("/supprimer/:code", (req, res) => {
+app.delete("/supprimer/:code", authenticateToken, requireRole("admin"), (req, res) => {
   const code = req.params.code;
   db.run("DELETE FROM stock WHERE code = ?", [code], function (err) {
     if (err) return res.status(500).send("Erreur suppression SQL");
@@ -78,6 +113,19 @@ app.get("/categories.json", (req, res) => {
     } catch (e) {
       res.status(500).send("categories.json invalide");
     }
+  });
+});
+
+// Route de connexion utilisateur
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).send("Champs manquants");
+  db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
+    if (err || !user) return res.status(401).send("Utilisateur ou mot de passe incorrect");
+    if (!bcrypt.compareSync(password, user.password)) return res.status(401).send("Utilisateur ou mot de passe incorrect");
+    // Générer le token
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: "8h" });
+    res.json({ token, role: user.role });
   });
 });
 

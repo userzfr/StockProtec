@@ -11,9 +11,20 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "prompt-sync": "^4.2.0",
     "sqlite3": "^5.1.7"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/userzfr/StockProtec.git"
+  },
+  "bugs": {
+    "url": "https://github.com/userzfr/StockProtec/issues"
+  },
+  "homepage": "https://github.com/userzfr/StockProtec#readme"
 }
