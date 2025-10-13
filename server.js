@@ -60,6 +60,7 @@ db.serialize(() => {
   db.run("ALTER TABLE stock ADD COLUMN etat TEXT DEFAULT 'rentré'", err => {});
   db.run("ALTER TABLE stock ADD COLUMN categorie TEXT", err => {});
   db.run("ALTER TABLE stock ADD COLUMN sousCategorie TEXT", err => {});
+  db.run("ALTER TABLE stock ADD COLUMN controleur TEXT", err => {});
 
   // Table users pour l'authentification
   db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -82,14 +83,27 @@ app.get("/donnees.json", (req, res) => {
   });
 });
 
-app.post("/sauvegarder", authenticateToken, requireRole("admin"), (req, res) => {
+// Rate limit spécifique pour les routes critiques
+// Gestion du dépassement de rate limit
+function rateLimitHandler(req, res) {
+  res.setHeader('Retry-After', '10');
+  res.status(429).json({ error: 'Trop de requêtes. Vous avez été déconnecté pour 10 secondes.' });
+}
+
+const strictLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limite renforcée
+  handler: rateLimitHandler
+});
+
+app.post("/sauvegarder", authenticateToken, (req, res) => {
   const data = req.body || [];
   db.serialize(() => {
     db.run("DELETE FROM stock", (err) => {
       if (err) return res.status(500).send("Erreur nettoyage");
-      const stmt = db.prepare(`INSERT INTO stock (code, nom, lot, peremption, controle, quantite, etat, categorie, sousCategorie) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      const stmt = db.prepare(`INSERT INTO stock (code, nom, lot, peremption, controle, controleur, quantite, etat, categorie, sousCategorie) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
       for (const p of data) {
-        stmt.run(p.code, p.nom, p.lot, p.peremption, p.controle, p.quantite, p.etat || "rentré", p.categorie || null, p.sousCategorie || null);
+        stmt.run(p.code, p.nom, p.lot, p.peremption, p.controle, p.controleur || '', p.quantite, p.etat || "rentré", p.categorie || null, p.sousCategorie || null);
       }
       stmt.finalize();
       res.sendStatus(200);
@@ -97,7 +111,7 @@ app.post("/sauvegarder", authenticateToken, requireRole("admin"), (req, res) => 
   });
 });
 
-app.delete("/supprimer/:code", authenticateToken, requireRole("admin"), (req, res) => {
+app.delete("/supprimer/:code", authenticateToken, (req, res) => {
   const code = req.params.code;
   db.run("DELETE FROM stock WHERE code = ?", [code], function (err) {
     if (err) return res.status(500).send("Erreur suppression SQL");
@@ -126,6 +140,56 @@ app.post("/login", (req, res) => {
     // Générer le token
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: "8h" });
     res.json({ token, role: user.role });
+  });
+});
+
+// Route pour contrôler un article (mise à jour du champ 'controle' et 'controleur' et log)
+app.post("/controler/:code", strictLimiter, authenticateToken, (req, res) => {
+  const code = req.params.code;
+  const user = req.user.username;
+  const now = new Date().toISOString().split("T").join(" ").substring(0, 16);
+  db.run("UPDATE stock SET controle = ?, controleur = ? WHERE code = ?", [now, user, code], function (err) {
+    if (err) return res.status(500).send("Erreur SQL");
+    // Log l'action
+    const { logAction } = require("./log.js");
+    logAction({ user, action: "control", article: code });
+    res.sendStatus(200);
+  });
+});
+
+// Route POST pour créer un utilisateur (admin uniquement)
+app.post("/users", authenticateToken, requireRole("admin"), (req, res) => {
+  const { username, password, role } = req.body;
+  if (!username || !password || !role) return res.status(400).send("Champs manquants");
+  const hash = bcrypt.hashSync(password, 10);
+  db.run("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", [username, hash, role], function (err) {
+    if (err) return res.status(400).send("Utilisateur déjà existant ou erreur");
+    res.sendStatus(201);
+  });
+});
+// Route DELETE pour supprimer un utilisateur (admin uniquement)
+app.delete("/users/:id", authenticateToken, requireRole("admin"), (req, res) => {
+  const id = req.params.id;
+  db.run("DELETE FROM users WHERE id = ?", [id], function (err) {
+    if (err) return res.status(500).send("Erreur suppression utilisateur");
+    res.sendStatus(200);
+  });
+});
+// Route GET pour exporter la base de stock (admin uniquement)
+app.get("/export-stock", authenticateToken, requireRole("admin"), (req, res) => {
+  db.all("SELECT * FROM stock", [], (err, rows) => {
+    if (err) return res.status(500).send("Erreur SQL");
+    res.setHeader('Content-Disposition', 'attachment; filename=stock_export.json');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(rows, null, 2));
+  });
+});
+
+// Nouvelle route GET pour récupérer la liste des utilisateurs (admin uniquement)
+app.get("/users", authenticateToken, requireRole("admin"), (req, res) => {
+  db.all("SELECT id, username, role FROM users ORDER BY username", [], (err, rows) => {
+    if (err) return res.status(500).send("Erreur SQL");
+    res.json(rows);
   });
 });
 
