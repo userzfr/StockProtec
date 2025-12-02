@@ -13,7 +13,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
-    "express": "^5.1.0",
+    "express": "^5.2.1",
     "express-rate-limit": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "prompt-sync": "^4.2.0",
