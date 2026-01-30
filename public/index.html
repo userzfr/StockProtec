@@ -330,7 +330,7 @@ function rafraichirTableau(){
           actions += `<span class='text-muted'>Accès limité</span>`;
         }
         tr.innerHTML = `
-          <td><div class=\"code-barre-img\">${afficherCodeBarreSvg(item.code)}<div class=\"small\">${item.code}</div></div></td>
+          <td><button class="btn btn-outline-primary btn-sm"onclick="openBarcodeModal('${item.code}', '${item.nom || ''}')">Voir</button></td>
           <td>${item.nom || ''}</td>
           <td>${item.lot || ''}</td>
           <td>${item.peremption || '-'} </td>
@@ -595,6 +595,44 @@ function handleRateLimit(response){
   }
   return false;
 }
+
+function openBarcodeModal(code, nom) {
+  document.getElementById('barcodeTitle').textContent = nom;
+  document.getElementById('barcodeValue').textContent = code;
+
+  JsBarcode("#barcodeSvg", code, {
+    format: "CODE128",
+    width: 2,
+    height: 60,
+    displayValue: false
+  });
+
+  new bootstrap.Modal(
+    document.getElementById('barcodeModal')
+  ).show();
+}
 </script>
+
+<!-- Modal Code-barres -->
+<div class="modal fade" id="barcodeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="barcodeTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <svg id="barcodeSvg"></svg>
+        <div id="barcodeValue" class="mt-2 fw-bold"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+          Retour
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
