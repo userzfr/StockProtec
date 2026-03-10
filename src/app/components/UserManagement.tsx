@@ -1,0 +1,262 @@
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, UserPlus, Shield } from 'lucide-react';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { Label } from '@/app/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/app/components/ui/table';
+import { Badge } from '@/app/components/ui/badge';
+import { User } from '@/app/App';
+import { toast } from 'sonner';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/app/components/ui/alert-dialog';
+
+interface UserManagementProps {
+  currentUser: User;
+  onAddLog: (action: string, user: string, details: string) => void;
+}
+
+export function UserManagement({ currentUser, onAddLog }: UserManagementProps) {
+  const [users, setUsers] = useState<User[]>([]);
+  const [newUser, setNewUser] = useState({
+    username: '',
+    password: '',
+    role: 'user' as 'admin' | 'user'
+  });
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = () => {
+    const savedUsers = localStorage.getItem('users');
+    if (savedUsers) {
+      setUsers(JSON.parse(savedUsers));
+    }
+  };
+
+  const saveUsers = (updatedUsers: User[]) => {
+    localStorage.setItem('users', JSON.stringify(updatedUsers));
+    setUsers(updatedUsers);
+  };
+
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newUser.username || !newUser.password) {
+      toast.error('Veuillez remplir tous les champs');
+      return;
+    }
+
+    if (users.some(u => u.username === newUser.username)) {
+      toast.error('Ce nom d\'utilisateur existe déjà');
+      return;
+    }
+
+    const user: User = {
+      id: Date.now().toString(),
+      username: newUser.username,
+      password: newUser.password,
+      role: newUser.role,
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedUsers = [...users, user];
+    saveUsers(updatedUsers);
+    onAddLog('ADD_USER', currentUser.username, `Création de l'utilisateur: ${user.username} (${user.role})`);
+    toast.success('Utilisateur ajouté avec succès');
+    
+    setNewUser({ username: '', password: '', role: 'user' });
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+
+    if (user.id === currentUser.id) {
+      toast.error('Vous ne pouvez pas supprimer votre propre compte');
+      return;
+    }
+
+    const updatedUsers = users.filter(u => u.id !== userId);
+    saveUsers(updatedUsers);
+    onAddLog('DELETE_USER', currentUser.username, `Suppression de l'utilisateur: ${user.username}`);
+    toast.success('Utilisateur supprimé avec succès');
+    setDeletingUserId(null);
+
+    // Update authState if the deleted user was logged in elsewhere
+    const authState = localStorage.getItem('authState');
+    if (authState) {
+      const auth = JSON.parse(authState);
+      if (auth.user?.id === userId) {
+        localStorage.removeItem('authState');
+      }
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Add User Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus className="size-5" />
+            Ajouter un nouvel utilisateur
+          </CardTitle>
+          <CardDescription>
+            Créez un nouveau compte utilisateur ou administrateur
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAddUser} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-username">Nom d'utilisateur *</Label>
+                <Input
+                  id="new-username"
+                  placeholder="username"
+                  value={newUser.username}
+                  onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Mot de passe *</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new-role">Rôle *</Label>
+                <Select 
+                  value={newUser.role} 
+                  onValueChange={(value: 'admin' | 'user') => setNewUser({ ...newUser, role: value })}
+                >
+                  <SelectTrigger id="new-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">Utilisateur</SelectItem>
+                    <SelectItem value="admin">Administrateur</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="size-4 mr-2" />
+              Ajouter l'utilisateur
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Users List */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="size-5" />
+            Liste des utilisateurs ({users.length})
+          </CardTitle>
+          <CardDescription>
+            Gérez les comptes utilisateurs du système
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nom d'utilisateur</TableHead>
+                  <TableHead>Rôle</TableHead>
+                  <TableHead>Date de création</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-slate-500">
+                      Aucun utilisateur
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">
+                        {user.username}
+                        {user.id === currentUser.id && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            Vous
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
+                          {user.role === 'admin' ? 'ADMIN' : 'USER'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-600">
+                        {formatDate(user.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeletingUserId(user.id)}
+                          disabled={user.id === currentUser.id}
+                          className="hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingUserId} onOpenChange={() => setDeletingUserId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.
+              L'utilisateur sera immédiatement déconnecté s'il est connecté.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingUserId && handleDeleteUser(deletingUserId)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
