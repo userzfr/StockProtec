@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import db, { initializeDatabase } from './database.js';
+import { seedDatabase } from './seed.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,6 +17,7 @@ app.use(express.json());
 
 // Initialiser la base de données au démarrage
 initializeDatabase();
+seedDatabase();
 
 // ===============================
 // ROUTES UTILISATEURS
@@ -40,12 +42,7 @@ app.post('/api/login', (req, res) => {
       return res.status(400).json({ error: 'Username et password requis' });
     }
 
-    // Ne pas autoriser la connexion avec une adresse e-mail
-    if (username.includes('@')) {
-      return res.status(400).json({ error: 'Veuillez utiliser votre nom d\'utilisateur, pas votre adresse email' });
-    }
-    
-    const user = db.prepare('SELECT id, nom, email, role, password, date_creation, password_reset_requested, password_reset_date FROM users WHERE nom = ?').get(username);
+    const user = db.prepare('SELECT id, nom, role, password, date_creation, password_reset_requested, password_reset_date FROM users WHERE nom = ?').get(username);
     
     if (!user) {
       return res.status(401).json({ error: 'Identifiants incorrects' });

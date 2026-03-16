@@ -28,7 +28,7 @@ export function seedDatabase() {
 
     insertUser.run(
       'admin-001',
-      'Administrateur',
+      'admin',
       'admin123', // En production, ceci devrait être hashé
       'admin',
       new Date().toISOString()
@@ -36,7 +36,7 @@ export function seedDatabase() {
 
     insertUser.run(
       'user-001',
-      'Utilisateur Test',
+      'user',
       'user123',
       'user',
       new Date().toISOString()
@@ -240,8 +240,8 @@ export function seedDatabase() {
   console.log('  - 3 équipements opérationnels');
   console.log('');
   console.log('🔐 Identifiants de connexion :');
-  console.log('  Admin: admin@protectioncivile42.fr / admin123');
-  console.log('  User:  user@protectioncivile42.fr / user123');
+  console.log('  Admin: admin / admin123');
+  console.log('  User:  user / user123');
 }
 
 // Initialiser et remplir la base si ce script est exécuté directement

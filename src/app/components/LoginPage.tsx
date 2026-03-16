@@ -32,13 +32,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     e.preventDefault();
     setIsLoading(true);
 
-    // Ne pas permettre la connexion avec une adresse e-mail
-    if (username.includes('@')) {
-      toast.error('Veuillez utiliser votre nom d\'utilisateur, pas votre adresse email');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       // Utiliser l'API pour authentifier
       const user = await usersApi.login(username, password);
@@ -126,7 +119,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   <Input
                     id="username"
                     type="text"
-                    placeholder="Entrez votre nom d'utilisateur"
+                    placeholder="Entrez votre nom d'utilisateur (admin)"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="pl-10"
