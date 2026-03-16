@@ -5,6 +5,7 @@ import { LoginPage } from '@/app/components/LoginPage';
 import { Toaster } from '@/app/components/ui/sonner';
 import { toast } from 'sonner';
 import { AuthProvider } from '@/app/contexts/AuthContext';
+import { usersApi, bagsApi, operationalEquipmentApi, pharmacyProductsApi, logsApi } from '@/app/services/api';
 
 // Nouvelles catégories principales
 export type MainCategory = 'SAC' | 'KIT' | 'APPAREIL' | 'AUTRE';
@@ -187,37 +188,41 @@ export default function App() {
   });
 
   useEffect(() => {
-    // Initialize default users if not exists
-    const users = localStorage.getItem('users');
-    if (!users) {
-      const defaultUsers: User[] = [
-        {
-          id: '1',
-          username: 'admin',
-          password: 'admin123',
-          role: 'admin',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          username: 'user',
-          password: 'user123',
-          role: 'user',
-          createdAt: new Date().toISOString()
+    const initializeData = async () => {
+      try {
+        // Initialize default users if not exists
+        const existingUsers = await usersApi.getAll();
+        if (existingUsers.length === 0) {
+          const defaultUsers = [
+            {
+              id: '1',
+              nom: 'admin',
+              email: 'admin@example.com',
+              password: 'admin123',
+              role: 'admin',
+            },
+            {
+              id: '2',
+              nom: 'user',
+              email: 'user@example.com',
+              password: 'user123',
+              role: 'user',
+            }
+          ];
+          for (const user of defaultUsers) {
+            await usersApi.create(user);
+          }
         }
-      ];
-      localStorage.setItem('users', JSON.stringify(defaultUsers));
-    }
 
-    // Initialize example bags if not exists
-    const bags = localStorage.getItem('bags');
-    if (!bags) {
-      const exampleBags: Bag[] = [
-        {
-          id: '1',
-          name: 'Sac de Premiers Secours PSE1',
-          qrCode: 'BAG-PSE1-001',
-          deploymentStatus: 'present',
+        // Initialize example bags if not exists
+        const existingBags = await bagsApi.getAll();
+        if (existingBags.length === 0) {
+          const exampleBags: Bag[] = [
+            {
+              id: '1',
+              name: 'Sac de Premiers Secours PSE1',
+              qrCode: 'BAG-PSE1-001',
+              deploymentStatus: 'present',
           createdAt: new Date().toISOString(),
           pockets: [
             {
@@ -371,53 +376,57 @@ export default function App() {
           ],
         },
       ];
-      localStorage.setItem('bags', JSON.stringify(exampleBags));
-    }
+          for (const bag of exampleBags) {
+            await bagsApi.create(bag);
+          }
+        }
 
-    // Initialize example equipment if not exists
-    const equipment = localStorage.getItem('operationalEquipment');
-    if (!equipment) {
-      const exampleEquipment: OperationalEquipment[] = [
-        {
-          id: '1',
-          name: 'Défibrillateur Automatique DSA',
-          barcode: 'DSA-001',
-          type: 'DSA',
-          quantity: 2,
-          status: 'ok',
-          lastControlDate: new Date(Date.now() - 604800000).toISOString(),
-        },
-        {
-          id: '2',
-          name: 'Aspirateur de mucosités électrique',
-          barcode: 'ASP-001',
-          type: 'ASPIRATEUR',
-          quantity: 1,
-          status: 'ok',
-          lastControlDate: new Date(Date.now() - 1209600000).toISOString(),
-        },
-        {
-          id: '3',
-          name: 'Bouteille O2 5L avec manodétendeur',
-          barcode: 'O2-001',
-          type: 'OXYGENE',
-          quantity: 4,
-          status: 'ok',
-          lastControlDate: new Date(Date.now() - 259200000).toISOString(),
-        },
-      ];
-      localStorage.setItem('operationalEquipment', JSON.stringify(exampleEquipment));
-    }
+        // Initialize example equipment if not exists
+        const existingEquipment = await operationalEquipmentApi.getAll();
+        if (existingEquipment.length === 0) {
+          const exampleEquipment: OperationalEquipment[] = [
+            {
+              id: '1',
+              name: 'Défibrillateur Automatique DSA',
+              barcode: 'DSA-001',
+              type: 'DSA',
+              quantity: 2,
+              status: 'ok',
+              lastControlDate: new Date(Date.now() - 604800000).toISOString(),
+            },
+            {
+              id: '2',
+              name: 'Aspirateur de mucosités électrique',
+              barcode: 'ASP-001',
+              type: 'ASPIRATEUR',
+              quantity: 1,
+              status: 'ok',
+              lastControlDate: new Date(Date.now() - 1209600000).toISOString(),
+            },
+            {
+              id: '3',
+              name: 'Bouteille O2 5L avec manodétendeur',
+              barcode: 'O2-001',
+              type: 'OXYGENE',
+              quantity: 4,
+              status: 'ok',
+              lastControlDate: new Date(Date.now() - 259200000).toISOString(),
+            },
+          ];
+          for (const equipment of exampleEquipment) {
+            await operationalEquipmentApi.create(equipment);
+          }
+        }
 
-    // Initialize example pharmacy products if not exists
-    const pharmacyProducts = localStorage.getItem('pharmacyProducts');
-    if (!pharmacyProducts) {
-      const examplePharmacyProducts: PharmacyProduct[] = [
-        {
-          id: '1',
-          barcode: 'PHARM-001',
-          name: 'Paracétamol 500mg',
-          category: 'Antalgiques',
+        // Initialize example pharmacy products if not exists
+        const existingPharmacyProducts = await pharmacyProductsApi.getAll();
+        if (existingPharmacyProducts.length === 0) {
+          const examplePharmacyProducts: PharmacyProduct[] = [
+            {
+              id: '1',
+              barcode: 'PHARM-001',
+              name: 'Paracétamol 500mg',
+              category: 'Antalgiques',
           lot: 'LOT2024-A123',
           expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
           quantity: 150,
@@ -505,8 +514,17 @@ export default function App() {
           createdAt: new Date().toISOString(),
         },
       ];
-      localStorage.setItem('pharmacyProducts', JSON.stringify(examplePharmacyProducts));
-    }
+          for (const product of examplePharmacyProducts) {
+            await pharmacyProductsApi.create(product);
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de l\'initialisation des données:', error);
+        toast.error('Erreur lors de l\'initialisation des données');
+      }
+    };
+
+    initializeData();
 
     // Check if user is already logged in
     const savedAuth = localStorage.getItem('authState');
@@ -515,7 +533,7 @@ export default function App() {
     }
   }, []);
 
-  const handleLogin = (user: User) => {
+  const handleLogin = async (user: User) => {
     const newAuthState = {
       isAuthenticated: true,
       user
@@ -524,28 +542,32 @@ export default function App() {
     localStorage.setItem('authState', JSON.stringify(newAuthState));
     
     // Add login log
-    const logs = JSON.parse(localStorage.getItem('logs') || '[]');
-    logs.unshift({
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      action: 'LOGIN',
-      user: user.username,
-      details: 'Connexion réussie',
-    });
-    localStorage.setItem('logs', JSON.stringify(logs));
-  };
-
-  const handleLogout = () => {
-    if (authState.user) {
-      const logs = JSON.parse(localStorage.getItem('logs') || '[]');
-      logs.unshift({
+    try {
+      await logsApi.create({
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
-        action: 'LOGOUT',
-        user: authState.user.username,
-        details: 'Déconnexion',
+        action: 'LOGIN',
+        user: user.username,
+        details: 'Connexion réussie',
       });
-      localStorage.setItem('logs', JSON.stringify(logs));
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement du log de connexion:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (authState.user) {
+      try {
+        await logsApi.create({
+          id: Date.now().toString(),
+          timestamp: new Date().toISOString(),
+          action: 'LOGOUT',
+          user: authState.user.username,
+          details: 'Déconnexion',
+        });
+      } catch (error) {
+        console.error('Erreur lors de l\'enregistrement du log de déconnexion:', error);
+      }
     }
     localStorage.removeItem('authState');
     setAuthState({ isAuthenticated: false, user: null });

@@ -21,6 +21,7 @@ import { BugReport } from '@/app/App';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { bugReportsApi } from '@/app/services/api';
 
 interface BugReportsManagerProps {
   currentUser: { username: string };
@@ -33,36 +34,54 @@ export function BugReportsManager({ currentUser }: BugReportsManagerProps) {
     loadBugReports();
   }, []);
 
-  const loadBugReports = () => {
-    const reports: BugReport[] = JSON.parse(localStorage.getItem('bugReports') || '[]');
-    setBugReports(reports);
+  const loadBugReports = async () => {
+    try {
+      const reports = await bugReportsApi.getAll();
+      setBugReports(reports);
+    } catch (error) {
+      console.error('Erreur lors du chargement des rapports:', error);
+      toast.error('Erreur lors du chargement des rapports');
+    }
   };
 
-  const updateStatus = (id: string, status: BugReport['status']) => {
-    const reports = bugReports.map(r => {
-      if (r.id === id) {
-        return {
-          ...r,
-          status,
-          ...(status === 'resolved' && {
-            resolvedAt: new Date().toISOString(),
-            resolvedBy: currentUser.username,
-          }),
-        };
-      }
-      return r;
-    });
-    
-    setBugReports(reports);
-    localStorage.setItem('bugReports', JSON.stringify(reports));
-    toast.success('Statut mis à jour');
+  const updateStatus = async (id: string, status: BugReport['status']) => {
+    try {
+      await bugReportsApi.updateStatus(id, status);
+      
+      // Mettre à jour l'état local
+      const reports = bugReports.map(r => {
+        if (r.id === id) {
+          return {
+            ...r,
+            status,
+            ...(status === 'resolved' && {
+              resolvedAt: new Date().toISOString(),
+              resolvedBy: currentUser.username,
+            }),
+          };
+        }
+        return r;
+      });
+      
+      setBugReports(reports);
+      toast.success('Statut mis à jour');
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
+      toast.error('Erreur lors de la mise à jour du statut');
+    }
   };
 
-  const deleteReport = (id: string) => {
-    const reports = bugReports.filter(r => r.id !== id);
-    setBugReports(reports);
-    localStorage.setItem('bugReports', JSON.stringify(reports));
-    toast.success('Rapport supprimé');
+  const deleteReport = async (id: string) => {
+    try {
+      await bugReportsApi.delete(id);
+      
+      const reports = bugReports.filter(r => r.id !== id);
+      setBugReports(reports);
+      toast.success('Rapport supprimé');
+    } catch (error) {
+      console.error('Erreur lors de la suppression du rapport:', error);
+      toast.error('Erreur lors de la suppression du rapport');
+    }
   };
 
   const getStatusBadge = (status: BugReport['status']) => {

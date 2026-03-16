@@ -47,48 +47,48 @@ function generateNumericCode(length: number): string {
 /**
  * Récupère tous les codes existants dans la base de données
  */
-export function getAllExistingCodes(): string[] {
+import { bagsApi, pharmacyProductsApi, operationalEquipmentApi } from '../services/api';
+
+export async function getAllExistingCodes(): Promise<string[]> {
   const codes: string[] = [];
-  
-  // Récupère les QR codes des sacs
-  const bags = JSON.parse(localStorage.getItem('bags') || '[]');
-  bags.forEach((bag: any) => {
-    if (bag.qrCode) codes.push(bag.qrCode);
-  });
-  
-  // Récupère les codes-barres des produits de la pharmacie
-  const pharmacyProducts = JSON.parse(localStorage.getItem('pharmacyProducts') || '[]');
-  pharmacyProducts.forEach((product: any) => {
-    if (product.barcode) codes.push(product.barcode);
-  });
-  
-  // Récupère les codes-barres du matériel opérationnel
-  const operationalEquipment = JSON.parse(localStorage.getItem('operationalEquipment') || '[]');
-  operationalEquipment.forEach((equipment: any) => {
-    if (equipment.barcode) codes.push(equipment.barcode);
-  });
-  
-  // Récupère les codes-barres des anciens produits (rétrocompatibilité)
-  const products = JSON.parse(localStorage.getItem('products') || '[]');
-  products.forEach((product: any) => {
-    if (product.barcode) codes.push(product.barcode);
-  });
-  
+
+  try {
+    // Récupère les QR codes des sacs via API
+    const bags = await bagsApi.getAll();
+    bags.forEach((bag: any) => {
+      if (bag.qrCode) codes.push(bag.qrCode);
+    });
+
+    // Récupère les codes-barres des produits de la pharmacie via API
+    const pharmacyProducts = await pharmacyProductsApi.getAll();
+    pharmacyProducts.forEach((product: any) => {
+      if (product.barcode) codes.push(product.barcode);
+    });
+
+    // Récupère les codes-barres du matériel opérationnel via API
+    const operationalEquipment = await operationalEquipmentApi.getAll();
+    operationalEquipment.forEach((equipment: any) => {
+      if (equipment.barcode) codes.push(equipment.barcode);
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des codes existants:', error);
+  }
+
   return codes;
 }
 
 /**
  * Génère un nouvel QR code unique
  */
-export function generateUniqueQRCode(): string {
-  const existingCodes = getAllExistingCodes();
+export async function generateUniqueQRCode(): Promise<string> {
+  const existingCodes = await getAllExistingCodes();
   return generateUniqueCode('qr', existingCodes);
 }
 
 /**
  * Génère un nouveau code-barres unique
  */
-export function generateUniqueBarcode(): string {
-  const existingCodes = getAllExistingCodes();
+export async function generateUniqueBarcode(): Promise<string> {
+  const existingCodes = await getAllExistingCodes();
   return generateUniqueCode('barcode', existingCodes);
 }

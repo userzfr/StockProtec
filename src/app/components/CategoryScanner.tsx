@@ -12,6 +12,7 @@ import {
 import { CategoryBarcodeDialog } from '@/app/components/CategoryBarcodeDialog';
 import { CustomCategory } from '@/app/App';
 import { toast } from 'sonner';
+import { categoriesApi } from '@/app/services/api';
 
 interface CategoryScannerProps {
   isOpen: boolean;
@@ -23,21 +24,26 @@ export function CategoryScanner({ isOpen, onClose }: CategoryScannerProps) {
   const [foundCategory, setFoundCategory] = useState<CustomCategory | null>(null);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
 
-  const handleScan = () => {
+  const handleScan = async () => {
     if (!barcode.trim()) {
       toast.error('Veuillez entrer un code-barres');
       return;
     }
 
-    const categories: CustomCategory[] = JSON.parse(localStorage.getItem('customCategories') || '[]');
-    const category = categories.find(c => c.barcode === barcode.trim());
+    try {
+      const categories = await categoriesApi.getAll();
+      const category = categories.find(c => c.barcode === barcode.trim());
 
-    if (category) {
-      setFoundCategory(category);
-      setIsCategoryDialogOpen(true);
-      toast.success(`${category.mainCategory} trouvé(e) : ${category.categoryName}`);
-    } else {
-      toast.error('Aucune catégorie trouvée avec ce code-barres');
+      if (category) {
+        setFoundCategory(category);
+        setIsCategoryDialogOpen(true);
+        toast.success(`${category.mainCategory} trouvé(e) : ${category.categoryName}`);
+      } else {
+        toast.error('Aucune catégorie trouvée avec ce code-barres');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la recherche:', error);
+      toast.error('Erreur lors de la recherche');
     }
   };
 

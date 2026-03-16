@@ -14,6 +14,7 @@ import { Label } from '@/app/components/ui/label';
 import { toast } from 'sonner';
 import { BugReport } from '@/app/App';
 import { useLocation } from 'react-router';
+import { bugReportsApi } from '@/app/services/api';
 
 interface BugReportButtonProps {
   currentUser: { username: string };
@@ -39,7 +40,7 @@ export function BugReportButton({ currentUser }: BugReportButtonProps) {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!description.trim()) {
       toast.error('Veuillez décrire le bug');
       return;
@@ -47,26 +48,28 @@ export function BugReportButton({ currentUser }: BugReportButtonProps) {
 
     setIsSubmitting(true);
 
-    const bugReports: BugReport[] = JSON.parse(localStorage.getItem('bugReports') || '[]');
-    const newReport: BugReport = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      user: currentUser.username,
-      page: getCurrentPage(),
-      description: description.trim(),
-      userAgent: navigator.userAgent,
-      status: 'new',
-    };
+    try {
+      const newReport: BugReport = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        user: currentUser.username,
+        page: getCurrentPage(),
+        description: description.trim(),
+        userAgent: navigator.userAgent,
+        status: 'new',
+      };
 
-    bugReports.unshift(newReport);
-    localStorage.setItem('bugReports', JSON.stringify(bugReports));
+      await bugReportsApi.create(newReport);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
       setDescription('');
       setIsOpen(false);
       toast.success('Rapport de bug envoyé avec succès');
-    }, 500);
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi du rapport:', error);
+      toast.error('Erreur lors de l\'envoi du rapport');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

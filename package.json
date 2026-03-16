@@ -1,14 +1,17 @@
 {
   "name": "stockprotec",
   "description": "Application web de gestion de stock simple et efficace, conçue pour la Protection Civile.  \r Fonctionne en local avec enregistrement automatique des données sur le serveur dès qu'une modification est faite.",
-  "version": "0.0.0",
+  "version": "5.0.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
     "dev": "vite",
     "server": "node server/server.js",
+    "server:pg": "node server/server_pg.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
-    "seed": "node server/seed.js"
+    "dev:all:pg": "concurrently \"npm run dev\" \"npm run server:pg\"",
+    "seed": "node server/seed.js",
+    "migrate:to-pg": "node server/migrate_to_pg.js"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -55,6 +58,7 @@
     "lucide-react": "0.487.0",
     "motion": "12.23.24",
     "next-themes": "0.4.6",
+    "pg": "^8.20.0",
     "qrcode.react": "^4.2.0",
     "react-barcode": "^1.6.1",
     "react-day-picker": "8.10.1",

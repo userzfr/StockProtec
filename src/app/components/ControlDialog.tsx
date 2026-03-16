@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/app/components/ui/alert';
 import { CheckCircle, XCircle, AlertTriangle, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { controlHistoryApi } from '@/app/services/api';
 
 interface ControlDialogProps {
   open: boolean;
@@ -28,50 +29,60 @@ export function ControlDialog({ open, onOpenChange, bag, controlType, onComplete
   const [lastControlIssues, setLastControlIssues] = useState<{ itemId: string; itemName: string; issue: string }[]>([]);
 
   useEffect(() => {
-    // Initialiser les résultats
-    const initialResults = new Map<string, ControlResult>();
-    bag.pockets.forEach(pocket => {
-      pocket.items.forEach(item => {
-        initialResults.set(item.id, {
-          itemId: item.id,
-          itemName: item.name,
-          pocketName: pocket.name,
-          expectedQuantity: item.expectedQuantity,
+    const loadControlData = async () => {
+      // Initialiser les résultats
+      const initialResults = new Map<string, ControlResult>();
+      bag.pockets.forEach(pocket => {
+        pocket.items.forEach(item => {
+          initialResults.set(item.id, {
+            itemId: item.id,
+            itemName: item.name,
+            pocketName: pocket.name,
+            expectedQuantity: item.expectedQuantity,
+          });
         });
       });
-    });
-    setResults(initialResults);
+      setResults(initialResults);
 
-    // Récupérer les problèmes du dernier contrôle
-    const histories: ControlHistory[] = JSON.parse(localStorage.getItem('controlHistories') || '[]');
-    const lastControl = histories.find(h => h.bagId === bag.id);
-    
-    if (lastControl) {
-      const issues: { itemId: string; itemName: string; issue: string }[] = [];
-      lastControl.results.forEach(result => {
-        if (result.status === 'missing') {
-          issues.push({
-            itemId: result.itemId,
-            itemName: result.itemName,
-            issue: 'Manquant au dernier contrôle',
+      // Récupérer les problèmes du dernier contrôle
+      try {
+        const histories = await controlHistoryApi.getByBagId(bag.id);
+        const lastControl = histories.length > 0 ? histories[0] : null;
+        
+        if (lastControl) {
+          const issues: { itemId: string; itemName: string; issue: string }[] = [];
+          lastControl.results.forEach(result => {
+            if (result.status === 'missing') {
+              issues.push({
+                itemId: result.itemId,
+                itemName: result.itemName,
+                issue: 'Manquant au dernier contrôle',
+              });
+            } else if (result.status === 'damaged') {
+              issues.push({
+                itemId: result.itemId,
+                itemName: result.itemName,
+                issue: 'Endommagé au dernier contrôle',
+              });
+            } else if (result.actualQuantity !== undefined && result.actualQuantity < result.expectedQuantity) {
+              issues.push({
+                itemId: result.itemId,
+                itemName: result.itemName,
+                issue: `Quantité insuffisante au dernier contrôle (${result.actualQuantity}/${result.expectedQuantity})`,
+              });
+            }
           });
-        } else if (result.status === 'damaged') {
-          issues.push({
-            itemId: result.itemId,
-            itemName: result.itemName,
-            issue: 'Endommagé au dernier contrôle',
-          });
-        } else if (result.actualQuantity !== undefined && result.actualQuantity < result.expectedQuantity) {
-          issues.push({
-            itemId: result.itemId,
-            itemName: result.itemName,
-            issue: `Quantité insuffisante au dernier contrôle (${result.actualQuantity}/${result.expectedQuantity})`,
-          });
+          setLastControlIssues(issues);
         }
-      });
-      setLastControlIssues(issues);
+      } catch (error) {
+        console.error('Erreur lors du chargement des données de contrôle:', error);
+      }
+    };
+
+    if (open) {
+      loadControlData();
     }
-  }, [bag]);
+  }, [open, bag]);
 
   const handleButtonCheck = (itemId: string, status: 'present' | 'missing' | 'damaged') => {
     const result = results.get(itemId);

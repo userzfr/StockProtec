@@ -14,6 +14,7 @@ import { CreateCategoryDialog } from '@/app/components/CreateCategoryDialog';
 import { CategoryBarcodeDialog } from '@/app/components/CategoryBarcodeDialog';
 import { CustomCategory } from '@/app/App';
 import { toast } from 'sonner';
+import { categoriesApi } from '@/app/services/api';
 
 interface CategoryManagerProps {
   onAddLog: (action: string, user: string, details: string) => void;
@@ -30,9 +31,13 @@ export function CategoryManager({ onAddLog, currentUser }: CategoryManagerProps)
     loadCategories();
   }, []);
 
-  const loadCategories = () => {
-    const savedCategories: CustomCategory[] = JSON.parse(localStorage.getItem('customCategories') || '[]');
-    setCategories(savedCategories);
+  const loadCategories = async () => {
+    try {
+      const savedCategories = await categoriesApi.getAll();
+      setCategories(savedCategories);
+    } catch (error) {
+      console.error('Erreur lors du chargement des catégories:', error);
+    }
   };
 
   const handleCreateCategory = (categoryData: Omit<CustomCategory, 'id' | 'createdAt'>) => {

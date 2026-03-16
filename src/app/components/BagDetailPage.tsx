@@ -10,6 +10,7 @@ import { ControlDialog } from './ControlDialog';
 import { ControlHistoryViewer } from './ControlHistoryViewer';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { bagsApi, controlHistoryApi } from '@/app/services/api';
 
 export function BagDetailPage() {
   const { qrCode } = useParams<{ qrCode: string }>();
@@ -21,24 +22,32 @@ export function BagDetailPage() {
   const [lastControl, setLastControl] = useState<ControlHistory | null>(null);
 
   useEffect(() => {
-    if (qrCode) {
-      const bags: Bag[] = JSON.parse(localStorage.getItem('bags') || '[]');
-      const foundBag = bags.find(b => b.qrCode === qrCode);
-      
-      if (foundBag) {
-        setBag(foundBag);
-        
-        // Récupérer le dernier contrôle pour ce sac
-        const histories: ControlHistory[] = JSON.parse(localStorage.getItem('controlHistories') || '[]');
-        const bagHistories = histories.filter(h => h.bagId === foundBag.id);
-        if (bagHistories.length > 0) {
-          setLastControl(bagHistories[0]); // Le plus récent (déjà trié par date)
+    const loadBag = async () => {
+      if (qrCode) {
+        try {
+          const foundBag = await bagsApi.getByQrCode(qrCode);
+          
+          if (foundBag) {
+            setBag(foundBag);
+            
+            // Récupérer le dernier contrôle pour ce sac
+            const histories = await controlHistoryApi.getByBagId(foundBag.id);
+            if (histories.length > 0) {
+              setLastControl(histories[0]); // Le plus récent (déjà trié par date)
+            }
+          } else {
+            toast.error('Sac non trouvé');
+            navigate('/');
+          }
+        } catch (error) {
+          console.error('Erreur lors du chargement du sac:', error);
+          toast.error('Erreur lors du chargement du sac');
+          navigate('/');
         }
-      } else {
-        toast.error('Sac non trouvé');
-        navigate('/');
       }
-    }
+    };
+
+    loadBag();
   }, [qrCode, navigate]);
 
   const handleStartControl = (type: 'quick' | 'departure' | 'return') => {
@@ -46,67 +55,60 @@ export function BagDetailPage() {
     setControlDialogOpen(true);
   };
 
-  const handleControlComplete = (history: ControlHistory) => {
+  const handleControlComplete = async (history: ControlHistory) => {
     if (!bag) return;
 
-    // Sauvegarder l'historique
-    const histories: ControlHistory[] = JSON.parse(localStorage.getItem('controlHistories') || '[]');
-    histories.unshift(history);
-    localStorage.setItem('controlHistories', JSON.stringify(histories));
+    try {
+      // Sauvegarder l'historique
+      await controlHistoryApi.create(history);
 
-    // Mettre à jour le dernier contrôle affiché
-    setLastControl(history);
+      // Mettre à jour le dernier contrôle affiché
+      setLastControl(history);
 
-    // Mettre à jour le sac
-    const bags: Bag[] = JSON.parse(localStorage.getItem('bags') || '[]');
-    const updatedBags = bags.map(b => {
-      if (b.id === bag.id) {
-        // Calculer le statut basé sur les résultats
-        let status: 'ok' | 'warning' | 'critical' = 'ok';
-        const hasCritical = history.results.some(r => r.status === 'missing' || r.status === 'damaged');
-        const hasWarning = history.results.some(r => 
-          r.actualQuantity !== undefined && r.actualQuantity < r.expectedQuantity
-        );
-        
-        if (hasCritical) status = 'critical';
-        else if (hasWarning) status = 'warning';
+      // Calculer le statut basé sur les résultats
+      let status: 'ok' | 'warning' | 'critical' = 'ok';
+      const hasCritical = history.results.some(r => r.status === 'missing' || r.status === 'damaged');
+      const hasWarning = history.results.some(r => 
+        r.actualQuantity !== undefined && r.actualQuantity < r.expectedQuantity
+      );
+      
+      if (hasCritical) status = 'critical';
+      else if (hasWarning) status = 'warning';
 
-        // Mettre à jour le statut de déploiement
-        let deploymentStatus = b.deploymentStatus;
-        let deploymentLocation = b.deploymentLocation;
-        let deploymentDate = b.deploymentDate;
+      // Mettre à jour le statut de déploiement
+      let deploymentStatus = bag.deploymentStatus;
+      let deploymentLocation = bag.deploymentLocation;
+      let deploymentDate = bag.deploymentDate;
 
-        if (history.controlType === 'departure') {
-          deploymentStatus = 'deployed';
-          deploymentLocation = history.deploymentLocation;
-          deploymentDate = history.timestamp;
-        } else if (history.controlType === 'return') {
-          deploymentStatus = 'present';
-          deploymentLocation = undefined;
-          deploymentDate = undefined;
-        }
-
-        return {
-          ...b,
-          lastControlDate: history.timestamp,
-          status,
-          deploymentStatus,
-          deploymentLocation,
-          deploymentDate,
-        };
+      if (history.controlType === 'departure') {
+        deploymentStatus = 'deployed';
+        deploymentLocation = history.deploymentLocation;
+        deploymentDate = history.timestamp;
+      } else if (history.controlType === 'return') {
+        deploymentStatus = 'present';
+        deploymentLocation = undefined;
+        deploymentDate = undefined;
       }
-      return b;
-    });
 
-    localStorage.setItem('bags', JSON.stringify(updatedBags));
-    
-    const updatedBag = updatedBags.find(b => b.id === bag.id);
-    if (updatedBag) {
+      // Mettre à jour le sac
+      const updatedBag: Bag = {
+        ...bag,
+        lastControlDate: history.timestamp,
+        status,
+        deploymentStatus,
+        deploymentLocation,
+        deploymentDate,
+      };
+
+      await bagsApi.update(bag.id, updatedBag);
       setBag(updatedBag);
-    }
 
-    toast.success('Contrôle enregistré avec succès');
-    setControlDialogOpen(false);
+      toast.success('Contrôle enregistré avec succès');
+      setControlDialogOpen(false);
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement du contrôle:', error);
+      toast.error('Erreur lors de l\'enregistrement du contrôle');
+    }
   };
 
   if (!bag) {

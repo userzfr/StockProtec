@@ -14,6 +14,7 @@ import {
 } from '@/app/components/ui/dialog';
 import { User } from '@/app/App';
 import { toast } from 'sonner';
+import { usersApi } from '@/app/services/api';
 
 interface LoginPageProps {
   onLogin: (user: User) => void;
@@ -27,23 +28,31 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [resetUsername, setResetUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Get users from localStorage
-    const users: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find(u => u.username === username && u.password === password);
+    try {
+      // Utiliser l'API pour authentifier
+      const user = await usersApi.login(username, password);
+      
+      // Convertir la réponse au format User attendu par l'app
+      const appUser: User = {
+        id: user.id,
+        username: user.nom,
+        password: password,
+        role: user.role,
+        createdAt: user.date_creation,
+      };
 
-    setTimeout(() => {
-      if (user) {
-        toast.success(`Bienvenue ${user.username} !`);
-        onLogin(user);
-      } else {
-        toast.error('Identifiants incorrects');
-      }
+      toast.success(`Bienvenue ${appUser.username} !`);
+      onLogin(appUser);
+    } catch (error) {
+      console.error('Erreur de connexion:', error);
+      toast.error('Identifiants incorrects');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   const handleForgotPassword = () => {

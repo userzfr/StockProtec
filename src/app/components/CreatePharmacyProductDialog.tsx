@@ -24,7 +24,7 @@ export function CreatePharmacyProductDialog({ open, onOpenChange, onCreateProduc
   const [location, setLocation] = useState('');
   const [supplier, setSupplier] = useState('');
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) {
       toast.error('Veuillez saisir un nom de produit');
       return;
@@ -44,7 +44,7 @@ export function CreatePharmacyProductDialog({ open, onOpenChange, onCreateProduc
 
     const newProduct: PharmacyProduct = {
       id: Date.now().toString(),
-      barcode: generateUniqueBarcode(),
+      barcode: await generateUniqueBarcode(),
       name: name.trim(),
       category: category.trim(),
       lot: lot.trim(),

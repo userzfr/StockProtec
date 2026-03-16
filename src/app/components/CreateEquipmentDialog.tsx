@@ -24,7 +24,7 @@ export function CreateEquipmentDialog({ open, onOpenChange, onCreateEquipment }:
   const [status, setStatus] = useState<OperationalEquipment['status']>('ok');
   const [notes, setNotes] = useState('');
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) {
       toast.error('Veuillez saisir un nom de matériel');
       return;
@@ -38,7 +38,7 @@ export function CreateEquipmentDialog({ open, onOpenChange, onCreateEquipment }:
     const newEquipment: OperationalEquipment = {
       id: Date.now().toString(),
       name: name.trim(),
-      barcode: generateUniqueBarcode(),
+      barcode: await generateUniqueBarcode(),
       type,
       quantity,
       controlDate: controlDate || undefined,

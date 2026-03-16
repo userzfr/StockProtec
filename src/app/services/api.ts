@@ -28,6 +28,10 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
 // ===============================
 
 export const usersApi = {
+  login: (username: string, password: string) => apiRequest('/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  }),
   getAll: () => apiRequest('/users'),
   getByEmail: (email: string) => apiRequest(`/users/email/${email}`),
   create: (user: any) => apiRequest('/users', {
@@ -139,6 +143,9 @@ export const bugReportsApi = {
   updateStatus: (id: string, status: string) => apiRequest(`/bug-reports/${id}`, {
     method: 'PUT',
     body: JSON.stringify({ status }),
+  }),
+  delete: (id: string) => apiRequest(`/bug-reports/${id}`, {
+    method: 'DELETE',
   }),
 };
 

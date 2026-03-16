@@ -92,7 +92,7 @@ export function CreateBagDialog({ open, onOpenChange, onCreateBag }: CreateBagDi
     }));
   };
 
-  const handleCreateBag = () => {
+  const handleCreateBag = async () => {
     if (!bagName.trim()) {
       toast.error('Veuillez saisir un nom de sac');
       return;
@@ -112,7 +112,7 @@ export function CreateBagDialog({ open, onOpenChange, onCreateBag }: CreateBagDi
     const newBag: Bag = {
       id: Date.now().toString(),
       name: bagName,
-      qrCode: generateUniqueQRCode(),
+      qrCode: await generateUniqueQRCode(),
       pockets: pockets,
       createdAt: new Date().toISOString(),
       deploymentStatus: 'present',

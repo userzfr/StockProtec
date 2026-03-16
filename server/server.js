@@ -41,6 +41,33 @@ app.get('/api/users/email/:email', (req, res) => {
   }
 });
 
+// Login avec username et password
+app.post('/api/login', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username et password requis' });
+    }
+    
+    const user = db.prepare('SELECT id, nom, email, role, password, date_creation FROM users WHERE nom = ?').get(username);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Identifiants incorrects' });
+    }
+    
+    if (user.password !== password) {
+      return res.status(401).json({ error: 'Identifiants incorrects' });
+    }
+    
+    // Retourner l'utilisateur sans le mot de passe
+    const { password: _, ...userWithoutPassword } = user;
+    res.json(userWithoutPassword);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Créer un utilisateur
 app.post('/api/users', (req, res) => {
   try {

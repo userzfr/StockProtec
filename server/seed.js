@@ -7,7 +7,7 @@ import { initializeDatabase } from './database.js';
  */
 
 export function seedDatabase() {
-  console.log('🌱 Ajout de données d'exemple...');
+  console.log('Ajout de donnees d\'exemple...');
 
   // Vérifier si des utilisateurs existent déjà
   const existingUsers = db.prepare('SELECT COUNT(*) as count FROM users').get();

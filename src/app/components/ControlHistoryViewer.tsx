@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { CheckCircle, XCircle, AlertTriangle, Zap, LogOut, LogIn, FileText } from 'lucide-react';
 import { Separator } from '@/app/components/ui/separator';
+import { controlHistoryApi } from '@/app/services/api';
 
 interface ControlHistoryViewerProps {
   open: boolean;
@@ -18,11 +19,18 @@ export function ControlHistoryViewer({ open, onOpenChange, bagId }: ControlHisto
   const [histories, setHistories] = useState<ControlHistory[]>([]);
 
   useEffect(() => {
-    if (open) {
-      const allHistories: ControlHistory[] = JSON.parse(localStorage.getItem('controlHistories') || '[]');
-      const bagHistories = allHistories.filter(h => h.bagId === bagId);
-      setHistories(bagHistories);
-    }
+    const loadHistories = async () => {
+      if (open) {
+        try {
+          const bagHistories = await controlHistoryApi.getByBagId(bagId);
+          setHistories(bagHistories);
+        } catch (error) {
+          console.error('Erreur lors du chargement de l\'historique:', error);
+        }
+      }
+    };
+
+    loadHistories();
   }, [open, bagId]);
 
   const getControlTypeIcon = (type: 'quick' | 'departure' | 'return') => {
