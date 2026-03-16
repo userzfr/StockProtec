@@ -5,6 +5,10 @@ echo Installation des dépendances...
 call npm install
 
 echo.
+echo Reconstruction des modules natifs...
+call npm rebuild
+
+echo.
 echo Construction de l'interface utilisateur...
 call npm run build
 
