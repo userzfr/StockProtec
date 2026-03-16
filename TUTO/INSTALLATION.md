@@ -74,31 +74,7 @@ Toutes les tables nécessaires sont créées automatiquement :
 
 ## 🔄 Migration des Données Existantes
 
-Si vous avez déjà des données dans le localStorage, vous pouvez les migrer vers SQLite.
-
-### Option 1 : Migration automatique au premier lancement
-
-L'application détectera les données existantes dans le localStorage et proposera de les migrer automatiquement.
-
-### Option 2 : Migration manuelle
-
-Vous pouvez aussi utiliser l'endpoint API directement :
-
-```bash
-POST http://localhost:3001/api/migrate
-Content-Type: application/json
-
-{
-  "users": [...],
-  "bags": [...],
-  "pharmacyProducts": [...],
-  "operationalEquipment": [...],
-  "controlHistories": [...],
-  "logs": [...],
-  "bugReports": [...],
-  "categories": [...]
-}
-```
+Toutes les données sont désormais stockées directement dans la base SQLite côté serveur. Il n'est plus nécessaire de migrer des données depuis le localStorage : l'application utilise désormais une base de données partagée accessible par tous les clients.
 
 ## 🔧 API Backend
 
@@ -108,10 +84,11 @@ Le serveur API démarre sur `http://localhost:3001`
 
 #### Utilisateurs
 - `GET /api/users` - Récupérer tous les utilisateurs
-- `GET /api/users/email/:email` - Récupérer un utilisateur par email
 - `POST /api/users` - Créer un utilisateur
 - `PUT /api/users/:id` - Mettre à jour un utilisateur
 - `DELETE /api/users/:id` - Supprimer un utilisateur
+
+> ⚠️ L'authentification se fait uniquement avec **nom d'utilisateur** + **mot de passe**. Les adresses email ne sont pas utilisées.
 
 #### Sacs
 - `GET /api/bags` - Récupérer tous les sacs

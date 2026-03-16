@@ -7,6 +7,7 @@ import { Package, Pill, Settings } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router';
 import { AdminPanel } from '@/app/components/AdminPanel';
 import { BugReportButton } from '@/app/components/BugReportButton';
+import { bugReportsApi, usersApi, logsApi } from '@/app/services/api';
 
 export function Root() {
   const { currentUser, logout } = useAuth();
@@ -22,30 +23,35 @@ export function Root() {
     }
   }, [currentUser]);
 
-  const checkAdminNotifications = () => {
-    const bugReports = JSON.parse(localStorage.getItem('bugReports') || '[]');
-    const newBugReports = bugReports.filter((r: any) => r.status === 'new').length;
+  const checkAdminNotifications = async () => {
+    try {
+      const bugReports = await bugReportsApi.getAll();
+      const newBugReports = (bugReports || []).filter((r: any) => r.status === 'new').length;
 
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const passwordResets = users.filter((u: any) => u.passwordResetRequested).length;
+      const users = await usersApi.getAll();
+      const passwordResets = (users || []).filter((u: any) => u.password_reset_requested).length;
 
-    setAdminNotifications({
-      bugReports: newBugReports,
-      passwordResets,
-    });
+      setAdminNotifications({
+        bugReports: newBugReports,
+        passwordResets,
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération des notifications admin :', error);
+    }
   };
 
-  const addLog = (action: string, user: string, details: string) => {
-    const logs = JSON.parse(localStorage.getItem('logs') || '[]');
-    logs.unshift({
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      action,
-      user,
-      details,
-    });
-    if (logs.length > 100) logs.pop();
-    localStorage.setItem('logs', JSON.stringify(logs));
+  const addLog = async (action: string, user: string, details: string) => {
+    try {
+      await logsApi.create({
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        action,
+        user,
+        details,
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement du log :', error);
+    }
   };
 
   const isPharmacyRoute = location.pathname === '/pharmacy';

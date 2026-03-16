@@ -1,10 +1,14 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import db, { initializeDatabase } from './database.js';
-import { migrateFromLocalStorage } from './migrate.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(cors());
@@ -20,22 +24,8 @@ initializeDatabase();
 // Récupérer tous les utilisateurs
 app.get('/api/users', (req, res) => {
   try {
-    const users = db.prepare('SELECT id, nom, email, role, date_creation FROM users').all();
+    const users = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date FROM users').all();
     res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Récupérer un utilisateur par email
-app.get('/api/users/email/:email', (req, res) => {
-  try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(req.params.email);
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -49,8 +39,13 @@ app.post('/api/login', (req, res) => {
     if (!username || !password) {
       return res.status(400).json({ error: 'Username et password requis' });
     }
+
+    // Ne pas autoriser la connexion avec une adresse e-mail
+    if (username.includes('@')) {
+      return res.status(400).json({ error: 'Veuillez utiliser votre nom d\'utilisateur, pas votre adresse email' });
+    }
     
-    const user = db.prepare('SELECT id, nom, email, role, password, date_creation FROM users WHERE nom = ?').get(username);
+    const user = db.prepare('SELECT id, nom, email, role, password, date_creation, password_reset_requested, password_reset_date FROM users WHERE nom = ?').get(username);
     
     if (!user) {
       return res.status(401).json({ error: 'Identifiants incorrects' });
@@ -71,13 +66,13 @@ app.post('/api/login', (req, res) => {
 // Créer un utilisateur
 app.post('/api/users', (req, res) => {
   try {
-    const { id, nom, email, password, role } = req.body;
+    const { id, nom, password, role } = req.body;
     const stmt = db.prepare(`
-      INSERT INTO users (id, nom, email, password, role)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO users (id, nom, password, role, password_reset_requested, password_reset_date)
+      VALUES (?, ?, ?, ?, 0, NULL)
     `);
-    stmt.run(id, nom, email, password, role);
-    res.status(201).json({ id, nom, email, role });
+    stmt.run(id, nom, password, role);
+    res.status(201).json({ id, nom, role });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -86,13 +81,26 @@ app.post('/api/users', (req, res) => {
 // Mettre à jour un utilisateur
 app.put('/api/users/:id', (req, res) => {
   try {
-    const { nom, email, password, role } = req.body;
-    const stmt = db.prepare(`
-      UPDATE users 
-      SET nom = ?, email = ?, password = ?, role = ?
-      WHERE id = ?
-    `);
-    stmt.run(nom, email, password, role, req.params.id);
+    const { nom, password, role, passwordResetRequested, passwordResetDate } = req.body;
+    const passwordResetFlag = passwordResetRequested ? 1 : 0;
+    const resetDateValue = passwordResetDate || null;
+
+    if (!password) {
+      const stmt = db.prepare(`
+        UPDATE users
+        SET nom = ?, role = ?, password_reset_requested = ?, password_reset_date = ?
+        WHERE id = ?
+      `);
+      stmt.run(nom, role, passwordResetFlag, resetDateValue, req.params.id);
+    } else {
+      const stmt = db.prepare(`
+        UPDATE users
+        SET nom = ?, password = ?, role = ?, password_reset_requested = ?, password_reset_date = ?
+        WHERE id = ?
+      `);
+      stmt.run(nom, password, role, passwordResetFlag, resetDateValue, req.params.id);
+    }
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -564,6 +572,17 @@ app.post('/api/logs', (req, res) => {
   }
 });
 
+// Supprimer tous les logs
+app.delete('/api/logs', (req, res) => {
+  try {
+    const stmt = db.prepare('DELETE FROM system_logs');
+    stmt.run();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ===============================
 // ROUTES RAPPORTS DE BUGS
 // ===============================
@@ -606,54 +625,87 @@ app.put('/api/bug-reports/:id', (req, res) => {
 });
 
 // ===============================
-// ROUTES CATÉGORIES
+// ROUTES RAPPORTS D'INSPECTION
 // ===============================
 
-// Récupérer toutes les catégories
-app.get('/api/categories', (req, res) => {
+// Récupérer tous les rapports d'inspection
+app.get('/api/inspection-reports', (req, res) => {
   try {
-    const categories = db.prepare('SELECT * FROM pharmacy_categories').all();
-    res.json(categories);
+    const reports = db.prepare('SELECT * FROM inspection_reports ORDER BY timestamp DESC').all();
+    const formatted = reports.map(r => ({
+      id: r.id,
+      timestamp: r.timestamp,
+      inspector: r.inspector,
+      category: r.category,
+      signature: r.signature,
+      conclusion: r.conclusion,
+      products: JSON.parse(r.products_json || '[]'),
+    }));
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Créer une catégorie
-app.post('/api/categories', (req, res) => {
+// Créer un rapport d'inspection
+app.post('/api/inspection-reports', (req, res) => {
   try {
-    const { id, name, color } = req.body;
+    const { id, timestamp, inspector, category, signature, conclusion, products } = req.body;
     const stmt = db.prepare(`
-      INSERT INTO pharmacy_categories (id, name, color)
-      VALUES (?, ?, ?)
+      INSERT INTO inspection_reports (id, timestamp, inspector, category, signature, conclusion, products_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, name, color);
+    stmt.run(id, timestamp, inspector, category, signature, conclusion, JSON.stringify(products || []));
     res.status(201).json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Supprimer une catégorie
-app.delete('/api/categories/:id', (req, res) => {
+// ===============================
+// ROUTES CATÉGORIES PERSONNALISÉES
+// ===============================
+
+// Récupérer toutes les catégories personnalisées
+app.get('/api/categories', (req, res) => {
   try {
-    const stmt = db.prepare('DELETE FROM pharmacy_categories WHERE id = ?');
-    stmt.run(req.params.id);
-    res.json({ success: true });
+    const categories = db.prepare('SELECT * FROM custom_categories').all();
+    const formatted = categories.map(c => ({
+      id: c.id,
+      mainCategory: c.main_category,
+      categoryName: c.category_name,
+      subCategory: c.sub_category || undefined,
+      barcode: c.barcode,
+      items: c.items ? JSON.parse(c.items) : [],
+      createdAt: c.date_creation,
+    }));
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// ===============================
-// ROUTE DE MIGRATION
-// ===============================
-
-// Endpoint pour migrer les données depuis localStorage
-app.post('/api/migrate', (req, res) => {
+// Créer une catégorie personnalisée
+app.post('/api/categories', (req, res) => {
   try {
-    migrateFromLocalStorage(req.body);
-    res.json({ success: true, message: 'Migration terminée avec succès' });
+    const { id, mainCategory, categoryName, subCategory, barcode, items } = req.body;
+    const stmt = db.prepare(`
+      INSERT INTO custom_categories (id, main_category, category_name, sub_category, barcode, items)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(id, mainCategory, categoryName, subCategory || null, barcode, JSON.stringify(items || []));
+    res.status(201).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Supprimer une catégorie personnalisée
+app.delete('/api/categories/:id', (req, res) => {
+  try {
+    const stmt = db.prepare('DELETE FROM custom_categories WHERE id = ?');
+    stmt.run(req.params.id);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -665,6 +717,12 @@ app.post('/api/migrate', (req, res) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'API StockProtec fonctionne correctement' });
+});
+
+// Serve static files (frontend build)
+app.use(express.static(path.join(__dirname, '..', 'dist')));
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
 // Démarrer le serveur

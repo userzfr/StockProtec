@@ -19,8 +19,8 @@ Bienvenue dans la documentation complète de StockProtec avec base de données S
 ### Utilisateur Existant ?
 
 3. **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** 🔄  
-   *Migration localStorage → SQLite*  
-   → Pourquoi migrer, comment migrer, que faire en cas de problème
+   *(Déprécié) Migration localStorage → SQLite*  
+   → Ce projet utilise désormais une base de données partagée ; la migration n'est plus nécessaire.
 
 ---
 
@@ -59,7 +59,7 @@ Bienvenue dans la documentation complète de StockProtec avec base de données S
 | Document | Contenu | Public |
 |----------|---------|--------|
 | [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) | Guide de migration | Utilisateurs |
-| [/server/migrate.js](/server/migrate.js) | Script de migration | Développeurs |
+| _(Migration tooling - déprécié)_ | Utilisé pour migrer depuis localStorage (maintenant inutile) | - |
 
 ### Développement
 

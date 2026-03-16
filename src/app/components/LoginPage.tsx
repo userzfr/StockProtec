@@ -32,6 +32,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     e.preventDefault();
     setIsLoading(true);
 
+    // Ne pas permettre la connexion avec une adresse e-mail
+    if (username.includes('@')) {
+      toast.error('Veuillez utiliser votre nom d\'utilisateur, pas votre adresse email');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Utiliser l'API pour authentifier
       const user = await usersApi.login(username, password);
@@ -55,32 +62,37 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }
   };
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     if (!resetUsername.trim()) {
       toast.error('Veuillez entrer votre nom d\'utilisateur');
       return;
     }
 
-    const users: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-    const userIndex = users.findIndex(u => u.username === resetUsername);
+    try {
+      const users = await usersApi.getAll();
+      const user = users.find((u: any) => u.nom === resetUsername);
 
-    if (userIndex === -1) {
-      toast.error('Utilisateur non trouvé');
-      return;
+      if (!user) {
+        toast.error('Utilisateur non trouvé');
+        return;
+      }
+
+      await usersApi.update(user.id, {
+        nom: user.nom,
+        email: user.email,
+        password: user.password,
+        role: user.role,
+        passwordResetRequested: true,
+        passwordResetDate: new Date().toISOString(),
+      });
+
+      toast.success('Demande de réinitialisation envoyée à l\'administrateur');
+      setIsForgotPasswordOpen(false);
+      setResetUsername('');
+    } catch (error) {
+      console.error('Erreur lors de la demande de réinitialisation :', error);
+      toast.error('Impossible d\'envoyer la demande de réinitialisation');
     }
-
-    // Mark user as requesting password reset
-    users[userIndex] = {
-      ...users[userIndex],
-      passwordResetRequested: true,
-      passwordResetDate: new Date().toISOString(),
-    };
-
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    toast.success('Demande de réinitialisation envoyée à l\'administrateur');
-    setIsForgotPasswordOpen(false);
-    setResetUsername('');
   };
 
   return (

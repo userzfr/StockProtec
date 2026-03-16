@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { ClipboardCheck, CheckCircle2, XCircle, AlertCircle, PenTool } from 'lucide-react';
 import { Badge } from '@/app/components/ui/badge';
 import { Card, CardContent } from '@/app/components/ui/card';
+import { inspectionReportsApi } from '@/app/services/api';
 
 interface InspectionDialogProps {
   products: Product[];
@@ -78,30 +79,42 @@ export function InspectionDialog({ products, currentUser, isOpen, onClose, onAdd
       conclusion
     };
 
-    // Save report
-    const reports: InspectionReport[] = JSON.parse(localStorage.getItem('inspectionReports') || '[]');
-    reports.unshift(report);
-    localStorage.setItem('inspectionReports', JSON.stringify(reports));
+    // Save report to the backend
+    try {
+      await inspectionReportsApi.create(report);
 
-    // Add log
-    const okCount = Object.values(inspectionData).filter(d => d.status === 'ok').length;
-    const defectiveCount = Object.values(inspectionData).filter(d => d.status === 'defective').length;
-    const missingCount = Object.values(inspectionData).filter(d => d.status === 'missing').length;
-    
-    onAddLog(
-      'INSPECTION', 
-      currentUser.username, 
-      `Contrôle de ${selectedCategory} - OK: ${okCount}, Défectueux: ${defectiveCount}, Manquant: ${missingCount}`
-    );
+      // Add log
+      const okCount = Object.values(inspectionData).filter(d => d.status === 'ok').length;
+      const defectiveCount = Object.values(inspectionData).filter(d => d.status === 'defective').length;
+      const missingCount = Object.values(inspectionData).filter(d => d.status === 'missing').length;
+      
+      onAddLog(
+        'INSPECTION', 
+        currentUser.username, 
+        `Contrôle de ${selectedCategory} - OK: ${okCount}, Défectueux: ${defectiveCount}, Manquant: ${missingCount}`
+      );
 
-    toast.success('Procès-verbal de contrôle enregistré');
-    
-    // Reset form
-    setSelectedCategory('');
-    setInspectionData({});
-    setSignature('');
-    setConclusion('');
-    onClose();
+      toast.success('Procès-verbal de contrôle enregistré');
+
+      // Reset form
+      setSelectedCategory('');
+      setInspectionData({});
+      setSignature('');
+      setConclusion('');
+      onClose();
+
+      // Update products control date
+      if (onUpdateProducts) {
+        const productIds = categoryProducts.map(p => p.id);
+        // Set next control date to 3 months from now
+        const nextControlDate = new Date();
+        nextControlDate.setMonth(nextControlDate.getMonth() + 3);
+        onUpdateProducts(productIds, nextControlDate.toISOString());
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement du rapport d\'inspection :', error);
+      toast.error('Impossible d\'enregistrer le rapport d\'inspection');
+    }
 
     // Update products control date
     if (onUpdateProducts) {

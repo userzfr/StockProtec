@@ -9,6 +9,7 @@ import { PharmacyStatsCards } from './PharmacyStatsCards';
 import { Input } from '@/app/components/ui/input';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { pharmacyProductsApi, logsApi } from '@/app/services/api';
 
 export function PharmacyStockPage() {
   const { currentUser } = useAuth();
@@ -20,52 +21,102 @@ export function PharmacyStockPage() {
     loadData();
   }, []);
 
-  const loadData = () => {
-    // Charger les produits de la pharmacie
-    const savedProducts = localStorage.getItem('pharmacyProducts');
-    if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
+  const loadData = async () => {
+    try {
+      const fetchedProducts = await pharmacyProductsApi.getAll();
+      setProducts(
+        fetchedProducts.map((p: any) => ({
+          id: p.id,
+          barcode: p.barcode,
+          name: p.name,
+          lot: p.lotNumber || '',
+          expiryDate: p.expiryDate || '',
+          controlDate: p.controlDate || '',
+          quantity: p.quantity,
+          category: p.category,
+          createdAt: p.date_creation,
+        }))
+      );
+    } catch (error) {
+      console.error('Erreur lors du chargement des produits :', error);
+      toast.error('Impossible de charger les produits');
     }
   };
 
-  const handleAddProduct = (product: PharmacyProduct) => {
-    const updatedProducts = [...products, product];
-    setProducts(updatedProducts);
-    localStorage.setItem('pharmacyProducts', JSON.stringify(updatedProducts));
-    addLog('CREATE_PHARMACY_PRODUCT', `Ajout du produit "${product.name}"`);
-    toast.success(`Produit "${product.name}" ajouté avec succès`);
+  const handleAddProduct = async (product: PharmacyProduct) => {
+    try {
+      await pharmacyProductsApi.create({
+        id: product.id,
+        barcode: product.barcode,
+        name: product.name,
+        category: product.category,
+        lotNumber: product.lot,
+        expiryDate: product.expiryDate,
+        controlDate: product.controlDate,
+        quantity: product.quantity,
+      });
+
+      setProducts(prev => [...prev, product]);
+      await logsApi.create({
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        action: 'CREATE_PHARMACY_PRODUCT',
+        user: currentUser.username,
+        details: `Ajout du produit "${product.name}"`,
+      });
+      toast.success(`Produit "${product.name}" ajouté avec succès`);
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du produit :', error);
+      toast.error('Impossible d\'ajouter le produit');
+    }
   };
 
-  const handleUpdateProduct = (updatedProduct: PharmacyProduct) => {
-    const updatedProducts = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
-    setProducts(updatedProducts);
-    localStorage.setItem('pharmacyProducts', JSON.stringify(updatedProducts));
-    addLog('UPDATE_PHARMACY_PRODUCT', `Modification du produit "${updatedProduct.name}"`);
-    toast.success(`Produit "${updatedProduct.name}" mis à jour`);
+  const handleUpdateProduct = async (updatedProduct: PharmacyProduct) => {
+    try {
+      await pharmacyProductsApi.update(updatedProduct.id, {
+        barcode: updatedProduct.barcode,
+        name: updatedProduct.name,
+        category: updatedProduct.category,
+        lotNumber: updatedProduct.lot,
+        expiryDate: updatedProduct.expiryDate,
+        controlDate: updatedProduct.controlDate,
+        quantity: updatedProduct.quantity,
+      });
+
+      setProducts(prev => prev.map(p => (p.id === updatedProduct.id ? updatedProduct : p)));
+      await logsApi.create({
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        action: 'UPDATE_PHARMACY_PRODUCT',
+        user: currentUser.username,
+        details: `Modification du produit "${updatedProduct.name}"`,
+      });
+      toast.success(`Produit "${updatedProduct.name}" mis à jour`);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du produit :', error);
+      toast.error('Impossible de mettre à jour le produit');
+    }
   };
 
-  const handleDeleteProduct = (productId: string) => {
+  const handleDeleteProduct = async (productId: string) => {
     const product = products.find(p => p.id === productId);
-    const updatedProducts = products.filter(p => p.id !== productId);
-    setProducts(updatedProducts);
-    localStorage.setItem('pharmacyProducts', JSON.stringify(updatedProducts));
-    if (product) {
-      addLog('DELETE_PHARMACY_PRODUCT', `Suppression du produit "${product.name}"`);
-    }
-    toast.success('Produit supprimé avec succès');
-  };
+    if (!product) return;
 
-  const addLog = (action: string, details: string) => {
-    const logs = JSON.parse(localStorage.getItem('logs') || '[]');
-    logs.unshift({
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      action,
-      user: currentUser.username,
-      details,
-    });
-    if (logs.length > 100) logs.pop();
-    localStorage.setItem('logs', JSON.stringify(logs));
+    try {
+      await pharmacyProductsApi.delete(productId);
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      await logsApi.create({
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        action: 'DELETE_PHARMACY_PRODUCT',
+        user: currentUser.username,
+        details: `Suppression du produit "${product.name}"`,
+      });
+      toast.success('Produit supprimé avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la suppression du produit :', error);
+      toast.error('Impossible de supprimer le produit');
+    }
   };
 
   const filteredProducts = products.filter(p =>

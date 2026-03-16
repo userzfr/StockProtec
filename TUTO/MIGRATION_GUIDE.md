@@ -1,4 +1,7 @@
-# 🔄 Guide de Migration - localStorage vers SQLite
+# 🔄 Guide de Migration - localStorage vers SQLite (déprécié)
+
+> Dans les versions actuelles, StockProtec utilise directement SQLite pour tout le stockage.
+> Il n'est plus nécessaire de migrer les données depuis le localStorage.
 
 ## 📋 Qu'est-ce qui change ?
 

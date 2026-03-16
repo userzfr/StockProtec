@@ -8,7 +8,6 @@ Backend Express.js avec base de données SQLite pour StockProtec.
 server/
 ├── database.js    # Configuration SQLite + Création tables
 ├── server.js      # API Express + Routes
-├── migrate.js     # Migration localStorage → SQLite
 ├── seed.js        # Données d'exemple
 └── README.md      # Ce fichier
 ```
@@ -116,7 +115,6 @@ http://localhost:3001/api
 
 #### Utilitaires
 - `GET /health` - État de l'API
-- `POST /migrate` - Migrer depuis localStorage
 
 ## 🔧 Configuration
 

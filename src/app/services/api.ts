@@ -3,7 +3,7 @@
  * Toutes les requêtes passent par ce service
  */
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 // Helper pour gérer les requêtes
 async function apiRequest(endpoint: string, options: RequestInit = {}) {
@@ -33,7 +33,6 @@ export const usersApi = {
     body: JSON.stringify({ username, password }),
   }),
   getAll: () => apiRequest('/users'),
-  getByEmail: (email: string) => apiRequest(`/users/email/${email}`),
   create: (user: any) => apiRequest('/users', {
     method: 'POST',
     body: JSON.stringify(user),
@@ -128,6 +127,9 @@ export const logsApi = {
     method: 'POST',
     body: JSON.stringify(log),
   }),
+  clear: () => apiRequest('/logs', {
+    method: 'DELETE',
+  }),
 };
 
 // ===============================
@@ -150,6 +152,18 @@ export const bugReportsApi = {
 };
 
 // ===============================
+// API RAPPORTS D'INSPECTION
+// ===============================
+
+export const inspectionReportsApi = {
+  getAll: () => apiRequest('/inspection-reports'),
+  create: (report: any) => apiRequest('/inspection-reports', {
+    method: 'POST',
+    body: JSON.stringify(report),
+  }),
+};
+
+// ===============================
 // API CATÉGORIES
 // ===============================
 
@@ -161,17 +175,6 @@ export const categoriesApi = {
   }),
   delete: (id: string) => apiRequest(`/categories/${id}`, {
     method: 'DELETE',
-  }),
-};
-
-// ===============================
-// API MIGRATION
-// ===============================
-
-export const migrationApi = {
-  migrateFromLocalStorage: (data: any) => apiRequest('/migrate', {
-    method: 'POST',
-    body: JSON.stringify(data),
   }),
 };
 

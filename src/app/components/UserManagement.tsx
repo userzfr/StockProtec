@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/app/components/ui/badge';
 import { User } from '@/app/App';
 import { toast } from 'sonner';
+import { usersApi } from '@/app/services/api';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/app/components/ui/alert-dialog';
 
 interface UserManagementProps {
@@ -26,22 +27,28 @@ export function UserManagement({ currentUser, onAddLog }: UserManagementProps) {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const fetchedUsers = await usersApi.getAll();
+        setUsers(fetchedUsers.map((u: any) => ({
+          id: u.id,
+          username: u.nom,
+          password: '',
+          role: u.role,
+          createdAt: u.date_creation,
+          passwordResetRequested: !!u.password_reset_requested,
+          passwordResetDate: u.password_reset_date,
+        })));
+      } catch (error) {
+        console.error('Erreur lors du chargement des utilisateurs :', error);
+        toast.error('Impossible de charger les utilisateurs');
+      }
+    };
+
     loadUsers();
   }, []);
 
-  const loadUsers = () => {
-    const savedUsers = localStorage.getItem('users');
-    if (savedUsers) {
-      setUsers(JSON.parse(savedUsers));
-    }
-  };
-
-  const saveUsers = (updatedUsers: User[]) => {
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-    setUsers(updatedUsers);
-  };
-
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!newUser.username || !newUser.password) {
@@ -59,18 +66,28 @@ export function UserManagement({ currentUser, onAddLog }: UserManagementProps) {
       username: newUser.username,
       password: newUser.password,
       role: newUser.role,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
-    const updatedUsers = [...users, user];
-    saveUsers(updatedUsers);
-    onAddLog('ADD_USER', currentUser.username, `Création de l'utilisateur: ${user.username} (${user.role})`);
-    toast.success('Utilisateur ajouté avec succès');
-    
-    setNewUser({ username: '', password: '', role: 'user' });
+    try {
+      await usersApi.create({
+        id: user.id,
+        nom: user.username,
+        password: user.password,
+        role: user.role,
+      });
+
+      setUsers(prev => [...prev, user]);
+      onAddLog('ADD_USER', currentUser.username, `Création de l'utilisateur: ${user.username} (${user.role})`);
+      toast.success('Utilisateur ajouté avec succès');
+      setNewUser({ username: '', password: '', role: 'user' });
+    } catch (error) {
+      console.error('Erreur lors de la création de l\'utilisateur :', error);
+      toast.error('Impossible d\'ajouter l\'utilisateur');
+    }
   };
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     const user = users.find(u => u.id === userId);
     if (!user) return;
 
@@ -79,19 +96,17 @@ export function UserManagement({ currentUser, onAddLog }: UserManagementProps) {
       return;
     }
 
-    const updatedUsers = users.filter(u => u.id !== userId);
-    saveUsers(updatedUsers);
-    onAddLog('DELETE_USER', currentUser.username, `Suppression de l'utilisateur: ${user.username}`);
-    toast.success('Utilisateur supprimé avec succès');
-    setDeletingUserId(null);
+    try {
+      await usersApi.delete(userId);
 
-    // Update authState if the deleted user was logged in elsewhere
-    const authState = localStorage.getItem('authState');
-    if (authState) {
-      const auth = JSON.parse(authState);
-      if (auth.user?.id === userId) {
-        localStorage.removeItem('authState');
-      }
+      const updatedUsers = users.filter(u => u.id !== userId);
+      setUsers(updatedUsers);
+      onAddLog('DELETE_USER', currentUser.username, `Suppression de l'utilisateur: ${user.username}`);
+      toast.success('Utilisateur supprimé avec succès');
+      setDeletingUserId(null);
+    } catch (error) {
+      console.error('Erreur lors de la suppression de l\'utilisateur :', error);
+      toast.error('Impossible de supprimer l\'utilisateur');
     }
   };
 

@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/app/components/ui/badge';
 import { Input } from '@/app/components/ui/input';
 import { LogEntry } from '@/app/App';
+import { logsApi } from '@/app/services/api';
 import { toast } from 'sonner';
 
 export function LogsViewer() {
@@ -16,17 +17,25 @@ export function LogsViewer() {
     loadLogs();
   }, []);
 
-  const loadLogs = () => {
-    const savedLogs = localStorage.getItem('logs');
-    if (savedLogs) {
-      setLogs(JSON.parse(savedLogs));
+  const loadLogs = async () => {
+    try {
+      const fetchedLogs = await logsApi.getAll();
+      setLogs(fetchedLogs);
+    } catch (error) {
+      console.error('Erreur lors du chargement des journaux :', error);
+      toast.error('Impossible de charger les journaux');
     }
   };
 
-  const handleClearLogs = () => {
-    localStorage.setItem('logs', JSON.stringify([]));
-    setLogs([]);
-    toast.success('Journaux effacés');
+  const handleClearLogs = async () => {
+    try {
+      await logsApi.clear();
+      setLogs([]);
+      toast.success('Journaux effacés');
+    } catch (error) {
+      console.error('Erreur lors de la suppression des journaux :', error);
+      toast.error('Impossible d\'effacer les journaux');
+    }
   };
 
   const handleExportLogs = () => {

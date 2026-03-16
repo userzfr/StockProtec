@@ -36,43 +36,56 @@ export function CategoryManager({ onAddLog, currentUser }: CategoryManagerProps)
       const savedCategories = await categoriesApi.getAll();
       setCategories(savedCategories);
     } catch (error) {
-      console.error('Erreur lors du chargement des catégories:', error);
+      console.error('Erreur lors du chargement des catégories :', error);
+      toast.error('Impossible de charger les catégories');
     }
   };
 
-  const handleCreateCategory = (categoryData: Omit<CustomCategory, 'id' | 'createdAt'>) => {
+  const handleCreateCategory = async (categoryData: Omit<CustomCategory, 'id' | 'createdAt'>) => {
     const newCategory: CustomCategory = {
       ...categoryData,
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
     };
 
-    const updatedCategories = [...categories, newCategory];
-    setCategories(updatedCategories);
-    localStorage.setItem('customCategories', JSON.stringify(updatedCategories));
-    
-    onAddLog(
-      'CREATE_CATEGORY',
-      currentUser.username,
-      `Création de ${categoryData.mainCategory}: ${categoryData.categoryName}`
-    );
+    try {
+      await categoriesApi.create({
+        ...newCategory,
+      });
+
+      setCategories((prev) => [...prev, newCategory]);
+      onAddLog(
+        'CREATE_CATEGORY',
+        currentUser.username,
+        `Création de ${categoryData.mainCategory}: ${categoryData.categoryName}`
+      );
+      toast.success('Catégorie créée');
+    } catch (error) {
+      console.error('Erreur lors de la création de la catégorie :', error);
+      toast.error('Impossible de créer la catégorie');
+    }
   };
 
-  const handleDeleteCategory = (id: string) => {
+  const handleDeleteCategory = async (id: string) => {
     const category = categories.find(c => c.id === id);
     if (!category) return;
 
     if (confirm(`Êtes-vous sûr de vouloir supprimer "${category.categoryName}" ?`)) {
-      const updatedCategories = categories.filter(c => c.id !== id);
-      setCategories(updatedCategories);
-      localStorage.setItem('customCategories', JSON.stringify(updatedCategories));
-      
-      onAddLog(
-        'DELETE_CATEGORY',
-        currentUser.username,
-        `Suppression de ${category.mainCategory}: ${category.categoryName}`
-      );
-      toast.success('Catégorie supprimée');
+      try {
+        await categoriesApi.delete(id);
+        const updatedCategories = categories.filter(c => c.id !== id);
+        setCategories(updatedCategories);
+
+        onAddLog(
+          'DELETE_CATEGORY',
+          currentUser.username,
+          `Suppression de ${category.mainCategory}: ${category.categoryName}`
+        );
+        toast.success('Catégorie supprimée');
+      } catch (error) {
+        console.error('Erreur lors de la suppression de la catégorie :', error);
+        toast.error('Impossible de supprimer la catégorie');
+      }
     }
   };
 

@@ -37,7 +37,6 @@ Cette documentation explique l'architecture technique de StockProtec avec la bas
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
   nom TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
   date_creation TEXT DEFAULT (datetime('now'))
@@ -189,10 +188,11 @@ Le serveur Express est configuré dans `/server/server.js` :
 
 #### Utilisateurs
 - `GET /api/users` - Liste tous les utilisateurs
-- `GET /api/users/email/:email` - Récupère un utilisateur par email
 - `POST /api/users` - Crée un nouvel utilisateur
 - `PUT /api/users/:id` - Met à jour un utilisateur
 - `DELETE /api/users/:id` - Supprime un utilisateur
+
+> ⚠️ Le système utilise le **nom d'utilisateur** comme identifiant de connexion. Les adresses email ne sont pas utilisées pour l'authentification.
 
 #### Sacs
 - `GET /api/bags` - Liste tous les sacs avec poches et items
@@ -233,7 +233,7 @@ Le serveur Express est configuré dans `/server/server.js` :
 - `DELETE /api/categories/:id` - Supprime une catégorie
 
 #### Migration
-- `POST /api/migrate` - Migre les données depuis localStorage
+La migration depuis le localStorage n'est plus nécessaire : toutes les données sont désormais stockées directement dans la base de données SQLite côté serveur.
 
 #### Santé
 - `GET /api/health` - Vérifie l'état de l'API
@@ -265,30 +265,7 @@ await bagsApi.update('bag-123', {
 
 ## 🔄 Migration des Données
 
-### Processus automatique
-
-1. L'utilisateur démarre l'application
-2. Le système détecte des données dans le localStorage
-3. Une boîte de dialogue propose la migration
-4. Les données sont envoyées à l'API `/api/migrate`
-5. Le serveur insère les données dans SQLite
-6. Confirmation de succès
-
-### Processus manuel
-
-Vous pouvez aussi migrer manuellement en appelant :
-
-```typescript
-import { migrationApi } from '@/app/services/api';
-
-const data = {
-  users: JSON.parse(localStorage.getItem('users') || '[]'),
-  bags: JSON.parse(localStorage.getItem('bags') || '[]'),
-  // ... autres données
-};
-
-await migrationApi.migrateFromLocalStorage(data);
-```
+La migration depuis le localStorage n'est plus nécessaire : l'application utilise désormais une base de données SQLite partagée côté serveur pour stocker toutes les données.
 
 ## 🚀 Déploiement
 

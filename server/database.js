@@ -16,17 +16,58 @@ db.pragma('foreign_keys = ON');
 export function initializeDatabase() {
   console.log('🔧 Initialisation de la base de données SQLite...');
 
-  // Table des utilisateurs
+  // Table des utilisateurs (sans email)
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       nom TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
       date_creation TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  // Si la table existait déjà avec une colonne email, la supprimer proprement
+  const userColumns = db.prepare(`PRAGMA table_info(users)`).all();
+  const hasEmailColumn = userColumns.some(col => col.name === 'email');
+  if (hasEmailColumn) {
+    console.log('🧹 Migration des utilisateurs : suppression du champ email');
+    db.transaction(() => {
+      // Désactiver temporairement les clés étrangères le temps de recréer la table
+      db.pragma('foreign_keys = OFF');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS users_new (
+          id TEXT PRIMARY KEY,
+          nom TEXT NOT NULL,
+          password TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+          date_creation TEXT DEFAULT (datetime('now')),
+          password_reset_requested INTEGER DEFAULT 0,
+          password_reset_date TEXT
+        )
+      `);
+
+      db.exec(`
+        INSERT INTO users_new (id, nom, password, role, date_creation, password_reset_requested, password_reset_date)
+        SELECT id, nom, password, role, date_creation, password_reset_requested, password_reset_date
+        FROM users;
+      `);
+
+      db.exec(`DROP TABLE users;`);
+      db.exec(`ALTER TABLE users_new RENAME TO users;`);
+
+      db.pragma('foreign_keys = ON');
+    })();
+  }
+
+  // Ajouter les colonnes de réinitialisation de mot de passe si elles n'existent pas
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN password_reset_requested INTEGER DEFAULT 0`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN password_reset_date TEXT`);
+  } catch {}
 
   // Table des sacs opérationnels
   db.exec(`
@@ -150,12 +191,38 @@ export function initializeDatabase() {
     )
   `);
 
+  // Table des rapports d'inspection
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS inspection_reports (
+      id TEXT PRIMARY KEY,
+      timestamp TEXT DEFAULT (datetime('now')),
+      inspector TEXT NOT NULL,
+      category TEXT NOT NULL,
+      signature TEXT,
+      conclusion TEXT,
+      products_json TEXT NOT NULL
+    )
+  `);
+
   // Table des catégories de pharmacie
   db.exec(`
     CREATE TABLE IF NOT EXISTS pharmacy_categories (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       color TEXT,
+      date_creation TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Table des catégories personnalisées (avec liste d'articles)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_categories (
+      id TEXT PRIMARY KEY,
+      main_category TEXT NOT NULL,
+      category_name TEXT NOT NULL,
+      sub_category TEXT,
+      barcode TEXT UNIQUE NOT NULL,
+      items TEXT,
       date_creation TEXT DEFAULT (datetime('now'))
     )
   `);

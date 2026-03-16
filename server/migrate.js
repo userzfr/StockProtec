@@ -9,8 +9,8 @@ export function migrateFromLocalStorage(data) {
   console.log('Migration des donnees depuis localStorage...');
 
   const insertUser = db.prepare(`
-    INSERT OR REPLACE INTO users (id, nom, email, password, role, date_creation)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO users (id, nom, email, password, role, date_creation, password_reset_requested, password_reset_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertBag = db.prepare(`
@@ -59,8 +59,8 @@ export function migrateFromLocalStorage(data) {
   `);
 
   const insertCategory = db.prepare(`
-    INSERT OR IGNORE INTO pharmacy_categories (id, name, color, date_creation)
-    VALUES (?, ?, ?, ?)
+    INSERT OR IGNORE INTO custom_categories (id, main_category, category_name, sub_category, barcode, items, date_creation)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   try {
@@ -78,7 +78,16 @@ export function migrateFromLocalStorage(data) {
           const createdAt = user.createdAt || user.date_creation || new Date().toISOString();
           
           try {
-            insertUser.run(userId, userName, userEmail, userPassword, userRole, createdAt);
+            insertUser.run(
+              userId,
+              userName,
+              userEmail,
+              userPassword,
+              userRole,
+              createdAt,
+              user.passwordResetRequested ? 1 : 0,
+              user.passwordResetDate || null
+            );
             stats.users++;
           } catch (e) {
             // Utilisateur exist ou erreur - continuer
@@ -191,14 +200,25 @@ export function migrateFromLocalStorage(data) {
         }
       }
 
-      // Migrer les categories
-      if (data.categories && Array.isArray(data.categories)) {
-        for (const category of data.categories) {
+      // Migrer les catégories personnalisées
+      const categoriesData = Array.isArray(data.customCategories) ? data.customCategories : data.categories;
+      if (categoriesData && Array.isArray(categoriesData)) {
+        for (const category of categoriesData) {
           try {
+            const categoryId = category.id || `cat-${Date.now()}`;
+            const mainCategory = category.mainCategory || category.type || 'AUTRE';
+            const categoryName = category.categoryName || category.name || category.nom || 'Categorie';
+            const subCategory = category.subCategory || null;
+            const barcode = category.barcode || category.qrCode || `CAT-${categoryId}`;
+            const items = category.items || [];
+
             insertCategory.run(
-              category.id || `cat-${Date.now()}`,
-              category.name || category.nom || 'Categorie',
-              category.color || null,
+              categoryId,
+              mainCategory,
+              categoryName,
+              subCategory,
+              barcode,
+              JSON.stringify(items),
               new Date().toISOString()
             );
             stats.categories++;

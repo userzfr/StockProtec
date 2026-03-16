@@ -7,6 +7,7 @@ import { Package, Wrench } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { bagsApi, operationalEquipmentApi, logsApi } from '@/app/services/api';
 
 export function OperationalMaterialPage() {
   const navigate = useNavigate();
@@ -18,76 +19,100 @@ export function OperationalMaterialPage() {
     loadData();
   }, []);
 
-  const loadData = () => {
-    // Charger les sacs
-    const savedBags = localStorage.getItem('bags');
-    if (savedBags) {
-      setBags(JSON.parse(savedBags));
+  const loadData = async () => {
+    try {
+      const [bagsData, equipmentData] = await Promise.all([
+        bagsApi.getAll(),
+        operationalEquipmentApi.getAll(),
+      ]);
+
+      setBags(bagsData);
+      setEquipment(equipmentData);
+    } catch (error) {
+      console.error('Erreur lors du chargement des données opérationnelles :', error);
+      toast.error('Impossible de charger les données opérationnelles');
     }
+  };
 
-    // Charger le matériel opérationnel
-    const savedEquipment = localStorage.getItem('operationalEquipment');
-    if (savedEquipment) {
-      setEquipment(JSON.parse(savedEquipment));
+  const handleAddBag = async (bag: Bag) => {
+    try {
+      await bagsApi.create(bag);
+      setBags(prev => [...prev, bag]);
+      addLog('CREATE_BAG', `Création du sac "${bag.name}"`);
+    } catch (error) {
+      console.error('Erreur lors de la création du sac :', error);
+      toast.error('Impossible de créer le sac');
     }
   };
 
-  const handleAddBag = (bag: Bag) => {
-    const updatedBags = [...bags, bag];
-    setBags(updatedBags);
-    localStorage.setItem('bags', JSON.stringify(updatedBags));
-    addLog('CREATE_BAG', `Création du sac "${bag.name}"`);
+  const handleUpdateBag = async (updatedBag: Bag) => {
+    try {
+      await bagsApi.update(updatedBag.id, updatedBag);
+      setBags(prev => prev.map(b => (b.id === updatedBag.id ? updatedBag : b)));
+      addLog('UPDATE_BAG', `Modification du sac "${updatedBag.name}"`);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du sac :', error);
+      toast.error('Impossible de mettre à jour le sac');
+    }
   };
 
-  const handleUpdateBag = (updatedBag: Bag) => {
-    const updatedBags = bags.map(b => b.id === updatedBag.id ? updatedBag : b);
-    setBags(updatedBags);
-    localStorage.setItem('bags', JSON.stringify(updatedBags));
-    addLog('UPDATE_BAG', `Modification du sac "${updatedBag.name}"`);
-  };
-
-  const handleDeleteBag = (bagId: string) => {
+  const handleDeleteBag = async (bagId: string) => {
     const bag = bags.find(b => b.id === bagId);
-    const updatedBags = bags.filter(b => b.id !== bagId);
-    setBags(updatedBags);
-    localStorage.setItem('bags', JSON.stringify(updatedBags));
-    if (bag) {
-      addLog('DELETE_BAG', `Suppression du sac "${bag.name}"`);
+    try {
+      await bagsApi.delete(bagId);
+      setBags(prev => prev.filter(b => b.id !== bagId));
+      if (bag) {
+        addLog('DELETE_BAG', `Suppression du sac "${bag.name}"`);
+      }
+      toast.success('Sac supprimé avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la suppression du sac :', error);
+      toast.error('Impossible de supprimer le sac');
     }
-    toast.success('Sac supprimé avec succès');
   };
 
   const handleViewBag = (qrCode: string) => {
     navigate(`/bag/${qrCode}`);
   };
 
-  const handleAddEquipment = (equip: OperationalEquipment) => {
-    const updatedEquipment = [...equipment, equip];
-    setEquipment(updatedEquipment);
-    localStorage.setItem('operationalEquipment', JSON.stringify(updatedEquipment));
-    addLog('CREATE_EQUIPMENT', `Ajout du matériel "${equip.name}"`);
-  };
-
-  const handleUpdateEquipment = (updatedEquip: OperationalEquipment) => {
-    const updatedEquipment = equipment.map(e => e.id === updatedEquip.id ? updatedEquip : e);
-    setEquipment(updatedEquipment);
-    localStorage.setItem('operationalEquipment', JSON.stringify(updatedEquipment));
-    addLog('UPDATE_EQUIPMENT', `Modification du matériel "${updatedEquip.name}"`);
-  };
-
-  const handleDeleteEquipment = (equipId: string) => {
-    const equip = equipment.find(e => e.id === equipId);
-    const updatedEquipment = equipment.filter(e => e.id !== equipId);
-    setEquipment(updatedEquipment);
-    localStorage.setItem('operationalEquipment', JSON.stringify(updatedEquipment));
-    if (equip) {
-      addLog('DELETE_EQUIPMENT', `Suppression du matériel "${equip.name}"`);
+  const handleAddEquipment = async (equip: OperationalEquipment) => {
+    try {
+      await operationalEquipmentApi.create(equip);
+      setEquipment(prev => [...prev, equip]);
+      addLog('CREATE_EQUIPMENT', `Ajout du matériel "${equip.name}"`);
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du matériel :', error);
+      toast.error('Impossible d\'ajouter le matériel');
     }
-    toast.success('Matériel supprimé avec succès');
   };
 
-  const addLog = (action: string, details: string) => {
-    const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+  const handleUpdateEquipment = async (updatedEquip: OperationalEquipment) => {
+    try {
+      await operationalEquipmentApi.update(updatedEquip.id, updatedEquip);
+      setEquipment(prev => prev.map(e => (e.id === updatedEquip.id ? updatedEquip : e)));
+      addLog('UPDATE_EQUIPMENT', `Modification du matériel "${updatedEquip.name}"`);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du matériel :', error);
+      toast.error('Impossible de mettre à jour le matériel');
+    }
+  };
+
+  const handleDeleteEquipment = async (equipId: string) => {
+    const equip = equipment.find(e => e.id === equipId);
+    try {
+      await operationalEquipmentApi.delete(equipId);
+      setEquipment(prev => prev.filter(e => e.id !== equipId));
+      if (equip) {
+        addLog('DELETE_EQUIPMENT', `Suppression du matériel "${equip.name}"`);
+      }
+      toast.success('Matériel supprimé avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la suppression du matériel :', error);
+      toast.error('Impossible de supprimer le matériel');
+    }
+  };
+
+  const addLog = async (action: string, details: string) => {
     const newLog = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
@@ -95,9 +120,12 @@ export function OperationalMaterialPage() {
       user: currentUser.username,
       details,
     };
-    logs.unshift(newLog);
-    if (logs.length > 100) logs.pop();
-    localStorage.setItem('logs', JSON.stringify(logs));
+
+    try {
+      await logsApi.create(newLog);
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement du log :', error);
+    }
   };
 
   return (

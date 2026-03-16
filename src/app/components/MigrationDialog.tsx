@@ -39,6 +39,7 @@ export function MigrationDialog({ open, onOpenChange, onMigrationComplete }: Mig
         logs: JSON.parse(localStorage.getItem('logs') || '[]'),
         bugReports: JSON.parse(localStorage.getItem('bugReports') || '[]'),
         categories: JSON.parse(localStorage.getItem('categories') || '[]'),
+        customCategories: JSON.parse(localStorage.getItem('customCategories') || '[]'),
       };
 
       // Envoyer les données à l'API pour migration
@@ -64,7 +65,8 @@ export function MigrationDialog({ open, onOpenChange, onMigrationComplete }: Mig
     const users = localStorage.getItem('users');
     const bags = localStorage.getItem('bags');
     const products = localStorage.getItem('pharmacyProducts');
-    return users || bags || products;
+    const customCategories = localStorage.getItem('customCategories');
+    return users || bags || products || customCategories;
   };
 
   return (

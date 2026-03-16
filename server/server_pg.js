@@ -1,10 +1,14 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import db, { initializeDatabase } from './database_pg.js';
-import { migrateFromLocalStorage } from './migrate.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(cors());
@@ -20,22 +24,8 @@ await initializeDatabase();
 // Récupérer tous les utilisateurs
 app.get('/api/users', async (req, res) => {
   try {
-    const result = await db.query('SELECT id, nom, email, role, date_creation FROM users');
+    const result = await db.query('SELECT id, nom, role, date_creation FROM users');
     res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Récupérer un utilisateur par email
-app.get('/api/users/email/:email', async (req, res) => {
-  try {
-    const result = await db.query('SELECT * FROM users WHERE email = $1', [req.params.email]);
-    if (result.rows.length > 0) {
-      res.json(result.rows[0]);
-    } else {
-      res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -44,12 +34,12 @@ app.get('/api/users/email/:email', async (req, res) => {
 // Créer un utilisateur
 app.post('/api/users', async (req, res) => {
   try {
-    const { id, nom, email, password, role } = req.body;
+    const { id, nom, password, role } = req.body;
     await db.query(
-      'INSERT INTO users (id, nom, email, password, role) VALUES ($1, $2, $3, $4, $5)',
-      [id, nom, email, password, role]
+      'INSERT INTO users (id, nom, password, role) VALUES ($1, $2, $3, $4)',
+      [id, nom, password, role]
     );
-    res.status(201).json({ id, nom, email, role });
+    res.status(201).json({ id, nom, role });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -58,10 +48,10 @@ app.post('/api/users', async (req, res) => {
 // Mettre à jour un utilisateur
 app.put('/api/users/:id', async (req, res) => {
   try {
-    const { nom, email, password, role } = req.body;
+    const { nom, password, role } = req.body;
     await db.query(
-      'UPDATE users SET nom = $1, email = $2, password = $3, role = $4 WHERE id = $5',
-      [nom, email, password, role, req.params.id]
+      'UPDATE users SET nom = $1, password = $2, role = $3 WHERE id = $4',
+      [nom, password, role, req.params.id]
     );
     res.json({ success: true });
   } catch (error) {
@@ -173,14 +163,10 @@ app.delete('/api/bags/:id', async (req, res) => {
 // AUTRES ROUTES (simplifiées pour l'exemple)
 // ===============================
 
-// Route de migration
-app.post('/migrate', async (req, res) => {
-  try {
-    await migrateFromLocalStorage(req.body);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+// Serve static files (frontend build)
+app.use(express.static(path.join(__dirname, '..', 'dist')));
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
 // Démarrer le serveur

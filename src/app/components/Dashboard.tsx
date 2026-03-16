@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/app/components/Header';
 import { StockTable } from '@/app/components/StockTable';
 import { AddProductDialog } from '@/app/components/AddProductDialog';
@@ -7,6 +7,7 @@ import { StatsCards } from '@/app/components/StatsCards';
 import { BugReportButton } from '@/app/components/BugReportButton';
 import { CategoryScanner } from '@/app/components/CategoryScanner';
 import { Product, User } from '@/app/App';
+import { pharmacyProductsApi } from '@/app/services/api';
 
 interface DashboardProps {
   currentUser: User;
@@ -19,195 +20,214 @@ export function Dashboard({ currentUser, onLogout, onAddLog, adminNotifications 
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [products, setProducts] = useState<Product[]>(() => {
-    const savedProducts = localStorage.getItem('products');
-    if (savedProducts) {
-      return JSON.parse(savedProducts);
-    }
-    return [
-      {
-        id: '1',
-        barcode: '3401597847110',
-        name: 'Compresses stériles 10x10',
-        lot: 'LOT A',
-        expiryDate: '2026-12-31',
-        controlDate: '2026-02-15',
-        quantity: 150,
-        category: 'LOT A',
-        isOut: false,
-        bagBarcode: 'LOTA2024'
-      },
-      {
-        id: '2',
-        barcode: '3401345678901',
-        name: 'Pansements adhésifs',
-        lot: 'LOT A-001',
-        expiryDate: '2025-06-30',
-        controlDate: '2025-03-01',
-        quantity: 250,
-        category: 'LOT A',
-        isOut: false,
-        bagBarcode: 'LOTA2024'
-      },
-      {
-        id: '3',
-        barcode: '3401234567890',
-        name: 'Défibrillateur portable',
-        lot: 'ELEC-2024-001',
-        expiryDate: '2024-03-15',
-        controlDate: '2024-02-10',
-        quantity: 5,
-        category: 'EQUIPEMENT ELECTRONIQUE',
-        isOut: false
-      },
-      {
-        id: '4',
-        barcode: '3401987654321',
-        name: 'Kit de secours complet',
-        lot: 'LOT B-002',
-        expiryDate: '2027-01-20',
-        controlDate: '2026-06-01',
-        quantity: 12,
-        category: 'LOT B',
-        isOut: true,
-        outLocation: 'Poste Carnot',
-        outDate: '2026-01-15',
-        bagBarcode: 'LOTB2024'
-      },
-      {
-        id: '5',
-        barcode: '3401567890123',
-        name: 'Radio portable VHF',
-        lot: 'ELEC-2024-002',
-        expiryDate: '2025-09-10',
-        controlDate: '2025-04-15',
-        quantity: 8,
-        category: 'EQUIPEMENT ELECTRONIQUE',
-        isOut: false
-      },
-      {
-        id: '6',
-        barcode: '3401678901234',
-        name: 'Matériel premiers secours',
-        lot: 'LOT A-003',
-        expiryDate: '2028-12-31',
-        controlDate: '2027-06-30',
-        quantity: 20,
-        category: 'LOT A',
-        isOut: false
-      },
-      {
-        id: '7',
-        barcode: '3401789012345',
-        name: 'Oxygène médical portable',
-        lot: 'LOT B-004',
-        expiryDate: '2024-02-28',
-        controlDate: '2024-02-05',
-        quantity: 6,
-        category: 'LOT B',
-        isOut: true,
-        outLocation: 'Poste République',
-        outDate: '2026-01-20',
-        bagBarcode: 'LOTB2024'
-      },
-      {
-        id: '8',
-        barcode: '3401890123456',
-        name: 'Lampe torche LED rechargeable',
-        lot: 'ELEC-2024-003',
-        expiryDate: '2026-08-15',
-        controlDate: '2026-04-01',
-        quantity: 15,
-        category: 'EQUIPEMENT ELECTRONIQUE',
-        isOut: false
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const fetchedProducts = await pharmacyProductsApi.getAll();
+        setProducts(
+          fetchedProducts.map((p: any) => ({
+            id: p.id,
+            barcode: p.barcode,
+            name: p.name,
+            lot: p.lotNumber || '',
+            expiryDate: p.expiryDate || '',
+            controlDate: p.controlDate || '',
+            quantity: p.quantity,
+            category: p.category,
+            isOut: false,
+            bagBarcode: '',
+          }))
+        );
+      } catch (error) {
+        console.error('Erreur lors du chargement des produits :', error);
+        toast.error('Impossible de charger les produits');
       }
-    ];
-  });
+    };
+
+    loadProducts();
+  }, []);
 
   const saveProducts = (updatedProducts: Product[]) => {
     setProducts(updatedProducts);
-    localStorage.setItem('products', JSON.stringify(updatedProducts));
   };
 
-  const handleAddProduct = (product: Omit<Product, 'id'>) => {
-    const newProduct = {
+  const handleAddProduct = async (product: Omit<Product, 'id'>) => {
+    const id = Date.now().toString();
+    const newProduct: Product = {
       ...product,
-      id: Date.now().toString(),
+      id,
       isOut: false
     };
-    const updatedProducts = [...products, newProduct];
-    saveProducts(updatedProducts);
-    onAddLog('ADD_PRODUCT', currentUser.username, `Ajout du produit: ${product.name}`);
+
+    try {
+      await pharmacyProductsApi.create({
+        id,
+        barcode: newProduct.barcode,
+        name: newProduct.name,
+        category: newProduct.category,
+        lotNumber: newProduct.lot,
+        expiryDate: newProduct.expiryDate,
+        controlDate: newProduct.controlDate,
+        quantity: newProduct.quantity,
+      });
+
+      saveProducts([...products, newProduct]);
+      onAddLog('ADD_PRODUCT', currentUser.username, `Ajout du produit: ${product.name}`);
+    } catch (error) {
+      console.error('Erreur lors de la création du produit :', error);
+      toast.error('Impossible d\'ajouter le produit');
+    }
   };
 
-  const handleUpdateProduct = (id: string, updatedProduct: Partial<Product>) => {
+  const handleUpdateProduct = async (id: string, updatedProduct: Partial<Product>) => {
     const product = products.find(p => p.id === id);
-    const updatedProducts = products.map(p => p.id === id ? { ...p, ...updatedProduct } : p);
-    saveProducts(updatedProducts);
-    if (product) {
+    if (!product) return;
+
+    const mergedProduct = { ...product, ...updatedProduct };
+
+    try {
+      await pharmacyProductsApi.update(id, {
+        barcode: mergedProduct.barcode,
+        name: mergedProduct.name,
+        category: mergedProduct.category,
+        lotNumber: mergedProduct.lot,
+        expiryDate: mergedProduct.expiryDate,
+        controlDate: mergedProduct.controlDate,
+        quantity: mergedProduct.quantity,
+      });
+
+      const updatedProducts = products.map(p => (p.id === id ? mergedProduct : p));
+      saveProducts(updatedProducts);
       onAddLog('UPDATE_PRODUCT', currentUser.username, `Modification du produit: ${product.name}`);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du produit :', error);
+      toast.error('Impossible de mettre à jour le produit');
     }
   };
 
-  const handleDeleteProduct = (id: string) => {
+  const handleDeleteProduct = async (id: string) => {
     const product = products.find(p => p.id === id);
-    const updatedProducts = products.filter(p => p.id !== id);
-    saveProducts(updatedProducts);
-    if (product) {
+    if (!product) return;
+
+    try {
+      await pharmacyProductsApi.delete(id);
+      const updatedProducts = products.filter(p => p.id !== id);
+      saveProducts(updatedProducts);
       onAddLog('DELETE_PRODUCT', currentUser.username, `Suppression du produit: ${product.name}`);
+    } catch (error) {
+      console.error('Erreur lors de la suppression du produit :', error);
+      toast.error('Impossible de supprimer le produit');
     }
   };
 
-  const handleToggleOut = (id: string, isOut: boolean, location?: string) => {
+  const handleToggleOut = async (id: string, isOut: boolean, location?: string) => {
     const product = products.find(p => p.id === id);
-    const updatedProducts = products.map(p => 
-      p.id === id 
-        ? { 
-            ...p, 
-            isOut, 
-            outLocation: isOut ? location : undefined,
-            outDate: isOut ? new Date().toISOString() : undefined
-          } 
-        : p
-    );
-    saveProducts(updatedProducts);
-    if (product) {
+    if (!product) return;
+
+    const updatedProduct = {
+      ...product,
+      isOut,
+      outLocation: isOut ? location : undefined,
+      outDate: isOut ? new Date().toISOString() : undefined,
+    };
+
+    try {
+      await pharmacyProductsApi.update(id, {
+        barcode: updatedProduct.barcode,
+        name: updatedProduct.name,
+        category: updatedProduct.category,
+        lotNumber: updatedProduct.lot,
+        expiryDate: updatedProduct.expiryDate,
+        controlDate: updatedProduct.controlDate,
+        quantity: updatedProduct.quantity,
+      });
+
+      const updatedProducts = products.map(p => (p.id === id ? updatedProduct : p));
+      saveProducts(updatedProducts);
+
       if (isOut) {
         onAddLog('LOT_OUT', currentUser.username, `Sortie du ${product.name} vers ${location}`);
       } else {
         onAddLog('LOT_IN', currentUser.username, `Retour du ${product.name} de ${product.outLocation}`);
       }
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de l\'état du produit :', error);
+      toast.error('Impossible de mettre à jour le statut du produit');
     }
   };
 
-  const handleToggleCategoryOut = (category: string, isOut: boolean, location?: string) => {
+  const handleToggleCategoryOut = async (category: string, isOut: boolean, location?: string) => {
     const categoryProducts = products.filter(p => p.category === category);
-    const updatedProducts = products.map(p => 
+    const updatedProducts = products.map(p =>
       p.category === category
-        ? { 
-            ...p, 
-            isOut, 
+        ? {
+            ...p,
+            isOut,
             outLocation: isOut ? location : undefined,
-            outDate: isOut ? new Date().toISOString() : undefined
-          } 
+            outDate: isOut ? new Date().toISOString() : undefined,
+          }
         : p
     );
-    saveProducts(updatedProducts);
-    
-    if (isOut) {
-      onAddLog('CATEGORY_OUT', currentUser.username, `Sortie de toute la catégorie ${category} (${categoryProducts.length} produits) vers ${location}`);
-    } else {
-      onAddLog('CATEGORY_IN', currentUser.username, `Retour de toute la catégorie ${category} (${categoryProducts.length} produits)`);
+
+    try {
+      await Promise.all(
+        categoryProducts.map(prod =>
+          pharmacyProductsApi.update(prod.id, {
+            barcode: prod.barcode,
+            name: prod.name,
+            category: prod.category,
+            lotNumber: prod.lot,
+            expiryDate: prod.expiryDate,
+            controlDate: prod.controlDate,
+            quantity: prod.quantity,
+          })
+        )
+      );
+
+      saveProducts(updatedProducts);
+
+      if (isOut) {
+        onAddLog('CATEGORY_OUT', currentUser.username, `Sortie de toute la catégorie ${category} (${categoryProducts.length} produits) vers ${location}`);
+      } else {
+        onAddLog('CATEGORY_IN', currentUser.username, `Retour de toute la catégorie ${category} (${categoryProducts.length} produits)`);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour des produits de catégorie :', error);
+      toast.error('Impossible de mettre à jour les produits de la catégorie');
     }
   };
 
-  const handleUpdateProductsControlDate = (productIds: string[], newControlDate: string) => {
-    const updatedProducts = products.map(p => 
-      productIds.includes(p.id) 
-        ? { ...p, controlDate: newControlDate } 
+  const handleUpdateProductsControlDate = async (productIds: string[], newControlDate: string) => {
+    const updatedProducts = products.map(p =>
+      productIds.includes(p.id)
+        ? { ...p, controlDate: newControlDate }
         : p
     );
-    saveProducts(updatedProducts);
+
+    try {
+      await Promise.all(
+        updatedProducts
+          .filter(p => productIds.includes(p.id))
+          .map(p =>
+            pharmacyProductsApi.update(p.id, {
+              barcode: p.barcode,
+              name: p.name,
+              category: p.category,
+              lotNumber: p.lot,
+              expiryDate: p.expiryDate,
+              controlDate: p.controlDate,
+              quantity: p.quantity,
+            })
+          )
+      );
+
+      saveProducts(updatedProducts);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour des dates de contrôle :', error);
+      toast.error('Impossible de mettre à jour les dates de contrôle');
+    }
   };
 
   return (

@@ -22,6 +22,7 @@ import {
 } from '@/app/components/ui/dialog';
 import { User } from '@/app/App';
 import { toast } from 'sonner';
+import { usersApi } from '@/app/services/api';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -39,59 +40,94 @@ export function PasswordResetManager({ onAddLog }: PasswordResetManagerProps) {
     loadUsers();
   }, []);
 
-  const loadUsers = () => {
-    const allUsers: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-    setUsers(allUsers);
+  const loadUsers = async () => {
+    try {
+      const fetchedUsers = await usersApi.getAll();
+      setUsers(fetchedUsers.map((u: any) => ({
+        id: u.id,
+        username: u.nom,
+        password: '',
+        role: u.role,
+        createdAt: u.date_creation,
+        passwordResetRequested: !!u.password_reset_requested,
+        passwordResetDate: u.password_reset_date,
+      })));
+    } catch (error) {
+      console.error('Erreur lors du chargement des utilisateurs :', error);
+      toast.error('Impossible de charger les utilisateurs');
+    }
   };
 
   const pendingResets = users.filter(u => u.passwordResetRequested);
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (!selectedUser || !newPassword) {
       toast.error('Veuillez entrer un nouveau mot de passe');
       return;
     }
 
-    const updatedUsers = users.map(u => {
-      if (u.id === selectedUser.id) {
-        return {
-          ...u,
-          password: newPassword,
-          passwordResetRequested: false,
-          passwordResetDate: undefined,
-        };
-      }
-      return u;
-    });
+    const updatedUser = {
+      ...selectedUser,
+      password: newPassword,
+      passwordResetRequested: false,
+      passwordResetDate: undefined,
+    };
 
-    setUsers(updatedUsers);
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-    
-    onAddLog('PASSWORD_RESET', 'admin', `Réinitialisation du mot de passe pour ${selectedUser.username}`);
-    toast.success(`Mot de passe réinitialisé pour ${selectedUser.username}`);
-    
-    setIsResetDialogOpen(false);
-    setSelectedUser(null);
-    setNewPassword('');
+    try {
+      await usersApi.update(selectedUser.id, {
+        id: selectedUser.id,
+        nom: updatedUser.username,
+        password: newPassword,
+        role: updatedUser.role,
+        passwordResetRequested: false,
+        passwordResetDate: null,
+      });
+
+      const updatedUsers = users.map(u => (u.id === selectedUser.id ? updatedUser : u));
+      setUsers(updatedUsers);
+
+      onAddLog('PASSWORD_RESET', 'admin', `Réinitialisation du mot de passe pour ${selectedUser.username}`);
+      toast.success(`Mot de passe réinitialisé pour ${selectedUser.username}`);
+
+      setIsResetDialogOpen(false);
+      setSelectedUser(null);
+      setNewPassword('');
+    } catch (error) {
+      console.error('Erreur lors de la réinitialisation du mot de passe :', error);
+      toast.error('Impossible de réinitialiser le mot de passe');
+    }
   };
 
-  const handleRejectReset = (userId: string, username: string) => {
-    const updatedUsers = users.map(u => {
-      if (u.id === userId) {
-        return {
-          ...u,
-          passwordResetRequested: false,
-          passwordResetDate: undefined,
-        };
-      }
-      return u;
-    });
+  const handleRejectReset = async (userId: string, username: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
 
-    setUsers(updatedUsers);
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-    
-    onAddLog('PASSWORD_RESET_REJECTED', 'admin', `Demande de réinitialisation rejetée pour ${username}`);
-    toast.info(`Demande rejetée pour ${username}`);
+    const updatedUser = {
+      ...user,
+      passwordResetRequested: false,
+      passwordResetDate: undefined,
+    };
+
+    try {
+      await usersApi.update(userId, {
+        id: userId,
+        nom: updatedUser.username,
+        email: updatedUser.email,
+        password: updatedUser.password || undefined,
+        role: updatedUser.role,
+        passwordResetRequested: false,
+        passwordResetDate: null,
+      });
+
+      const updatedUsers = users.map(u => (u.id === userId ? updatedUser : u));
+      setUsers(updatedUsers);
+
+      onAddLog('PASSWORD_RESET_REJECTED', 'admin', `Demande de réinitialisation rejetée pour ${username}`);
+      toast.info(`Demande rejetée pour ${username}`);
+    } catch (error) {
+      console.error('Erreur lors du rejet de la demande de réinitialisation :', error);
+      toast.error('Impossible de rejeter la demande');
+    }
   };
 
   return (

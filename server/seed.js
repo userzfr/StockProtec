@@ -22,14 +22,13 @@ export function seedDatabase() {
   const seed = db.transaction(() => {
     // 1. Créer des utilisateurs
     const insertUser = db.prepare(`
-      INSERT INTO users (id, nom, email, password, role, date_creation)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, nom, password, role, date_creation)
+      VALUES (?, ?, ?, ?, ?)
     `);
 
     insertUser.run(
       'admin-001',
       'Administrateur',
-      'admin@protectioncivile42.fr',
       'admin123', // En production, ceci devrait être hashé
       'admin',
       new Date().toISOString()
@@ -38,7 +37,6 @@ export function seedDatabase() {
     insertUser.run(
       'user-001',
       'Utilisateur Test',
-      'user@protectioncivile42.fr',
       'user123',
       'user',
       new Date().toISOString()

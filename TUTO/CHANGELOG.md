@@ -41,8 +41,7 @@ Migration complète du système de stockage depuis localStorage vers une base de
 #### Tables créées
 
 1. **users** - Comptes utilisateurs
-   - Champs : id, nom, email, password, role, date_creation
-   - Index : email (unique)
+   - Champs : id, nom, password, role, date_creation
 
 2. **bags** - Sacs opérationnels
    - Champs : id, nom, qr_code, description, statuts, dates
@@ -88,10 +87,11 @@ Migration complète du système de stockage depuis localStorage vers une base de
 
 #### Utilisateurs
 - `GET /api/users` - Liste des utilisateurs
-- `GET /api/users/email/:email` - Utilisateur par email
 - `POST /api/users` - Créer un utilisateur
 - `PUT /api/users/:id` - Modifier un utilisateur
 - `DELETE /api/users/:id` - Supprimer un utilisateur
+
+> ⚠️ L'authentification se fait uniquement avec **nom d'utilisateur** + **mot de passe**. Les adresses email ne sont pas utilisées.
 
 #### Sacs
 - `GET /api/bags` - Liste des sacs avec poches et items

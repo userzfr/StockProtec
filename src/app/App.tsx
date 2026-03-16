@@ -134,6 +134,7 @@ export interface Product {
 export interface User {
   id: string;
   username: string;
+  email?: string;
   password: string;
   role: 'admin' | 'user';
   createdAt: string;
@@ -197,14 +198,12 @@ export default function App() {
             {
               id: '1',
               nom: 'admin',
-              email: 'admin@example.com',
               password: 'admin123',
               role: 'admin',
             },
             {
               id: '2',
               nom: 'user',
-              email: 'user@example.com',
               password: 'user123',
               role: 'user',
             }

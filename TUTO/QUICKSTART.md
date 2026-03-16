@@ -41,19 +41,14 @@ http://localhost:5173
 ```
 
 **Connexion par défaut** :
-- Email : `admin@protectioncivile42.fr`
+- Nom d'utilisateur : `Administrateur`
 - Mot de passe : `admin123`
 
 ---
 
 ## 🆕 Première utilisation ?
 
-### Si vous avez déjà des données
-
-1. L'application détectera vos données existantes
-2. Une fenêtre de migration s'ouvrira
-3. Cliquez sur **"Migrer les données"**
-4. ✅ Terminé !
+L'application utilise directement la base de données SQLite côté serveur. Il n'y a pas de migration à faire depuis le localStorage.
 
 ### Si c'est une installation vierge
 
