@@ -90,8 +90,8 @@ export function BagDetailPage() {
         deploymentDate = undefined;
       }
 
-      // Mettre à jour le sac
-      const updatedBag: Bag = {
+      // Mettre à jour le sac (sans réécrire les poches pour éviter les violations de clé étrangère)
+      const updatedBag = {
         ...bag,
         lastControlDate: history.timestamp,
         status,
@@ -100,7 +100,16 @@ export function BagDetailPage() {
         deploymentDate,
       };
 
-      await bagsApi.update(bag.id, updatedBag);
+      // Envoyer seulement les champs nécessaires (sans poches)
+      await bagsApi.update(bag.id, {
+        name: updatedBag.name,
+        description: updatedBag.description,
+        status: updatedBag.status,
+        deploymentStatus: updatedBag.deploymentStatus,
+        deploymentLocation: updatedBag.deploymentLocation,
+        deploymentDate: updatedBag.deploymentDate,
+        lastControlDate: updatedBag.lastControlDate,
+      });
       setBag(updatedBag);
 
       toast.success('Contrôle enregistré avec succès');

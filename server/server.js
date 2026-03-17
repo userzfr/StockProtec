@@ -266,9 +266,27 @@ app.put('/api/bags/:id', (req, res) => {
 
       // Si des poches sont fournies, les mettre à jour
       if (pockets) {
-        // Supprimer les anciennes poches et items
-        db.prepare('DELETE FROM pockets WHERE bag_id = ?').run(req.params.id);
-        
+        const bagId = req.params.id;
+        // Supprimer les anciennes valeurs de contrôle liées aux anciens items pour éviter les violations FK
+        db.prepare(`
+          DELETE FROM control_results
+          WHERE item_id IN (
+            SELECT bi.id
+            FROM bag_items bi
+            JOIN pockets p ON bi.pocket_id = p.id
+            WHERE p.bag_id = ?
+          )
+        `).run(bagId);
+
+        // Supprimer les anciens items et poches
+        db.prepare(`
+          DELETE FROM bag_items
+          WHERE pocket_id IN (
+            SELECT id FROM pockets WHERE bag_id = ?
+          )
+        `).run(bagId);
+        db.prepare('DELETE FROM pockets WHERE bag_id = ?').run(bagId);
+
         // Recréer les poches
         const insertPocket = db.prepare(`
           INSERT INTO pockets (id, bag_id, name, color, ordre_affichage)
@@ -279,15 +297,16 @@ app.put('/api/bags/:id', (req, res) => {
           VALUES (?, ?, ?, ?, ?)
         `);
 
-        pockets.forEach((pocket, index) => {
-          insertPocket.run(pocket.id, req.params.id, pocket.name, pocket.color, index);
-          
+        for (let index = 0; index < pockets.length; index++) {
+          const pocket = pockets[index];
+          insertPocket.run(pocket.id, bagId, pocket.name, pocket.color, index);
+
           if (pocket.items && pocket.items.length > 0) {
-            pocket.items.forEach(item => {
+            for (const item of pocket.items) {
               insertItem.run(item.id, pocket.id, item.name, item.expectedQuantity, item.checkType);
-            });
+            }
           }
-        });
+        }
       }
     })();
 
@@ -386,10 +405,12 @@ app.get('/api/operational-equipment', (req, res) => {
       id: e.id,
       name: e.name,
       qrCode: e.qr_code,
+      barcode: e.qr_code,
       type: e.type,
       category: e.category,
       status: e.status,
       controlDate: e.control_date,
+      lastControlDate: e.control_date,
       expiryDate: e.peremption_date
     }));
     res.json(formatted);
@@ -401,12 +422,17 @@ app.get('/api/operational-equipment', (req, res) => {
 // Créer un équipement opérationnel
 app.post('/api/operational-equipment', (req, res) => {
   try {
-    const { id, name, qrCode, type, category, status, controlDate, expiryDate } = req.body;
+    const { id, name, qrCode, barcode, type, category, status, controlDate, expiryDate } = req.body;
+    const resolvedQrCode = qrCode ?? barcode;
+    if (!resolvedQrCode) {
+      return res.status(400).json({ error: 'qrCode or barcode is requis' });
+    }
+    const resolvedCategory = category ?? 'AUTRE';
     const stmt = db.prepare(`
       INSERT INTO operational_equipment (id, name, qr_code, type, category, status, control_date, peremption_date)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, name, qrCode, type, category, status, controlDate, expiryDate);
+    stmt.run(id, name, resolvedQrCode, type, resolvedCategory, status, controlDate, expiryDate);
     res.status(201).json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -416,13 +442,18 @@ app.post('/api/operational-equipment', (req, res) => {
 // Mettre à jour un équipement opérationnel
 app.put('/api/operational-equipment/:id', (req, res) => {
   try {
-    const { name, qrCode, type, category, status, controlDate, expiryDate } = req.body;
+    const { name, qrCode, barcode, type, category, status, controlDate, expiryDate } = req.body;
+    const resolvedQrCode = qrCode ?? barcode;
+    if (!resolvedQrCode) {
+      return res.status(400).json({ error: 'qrCode or barcode is requis' });
+    }
+    const resolvedCategory = category ?? 'AUTRE';
     const stmt = db.prepare(`
-      UPDATE operational_equipment 
+      UPDATE operational_equipment
       SET name = ?, qr_code = ?, type = ?, category = ?, status = ?, control_date = ?, peremption_date = ?
       WHERE id = ?
     `);
-    stmt.run(name, qrCode, type, category, status, controlDate, expiryDate, req.params.id);
+    stmt.run(name, resolvedQrCode, type, resolvedCategory, status, controlDate, expiryDate, req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

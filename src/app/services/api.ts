@@ -91,14 +91,30 @@ export const pharmacyProductsApi = {
 
 export const operationalEquipmentApi = {
   getAll: () => apiRequest('/operational-equipment'),
-  create: (equipment: any) => apiRequest('/operational-equipment', {
-    method: 'POST',
-    body: JSON.stringify(equipment),
-  }),
-  update: (id: string, equipment: any) => apiRequest(`/operational-equipment/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(equipment),
-  }),
+  create: (equipment: any) => {
+    const payload = {
+      ...equipment,
+      qrCode: equipment.qrCode ?? equipment.barcode,
+      controlDate: equipment.controlDate ?? equipment.lastControlDate,
+      expiryDate: equipment.expiryDate ?? equipment.peremptionDate,
+    };
+    return apiRequest('/operational-equipment', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  update: (id: string, equipment: any) => {
+    const payload = {
+      ...equipment,
+      qrCode: equipment.qrCode ?? equipment.barcode,
+      controlDate: equipment.controlDate ?? equipment.lastControlDate,
+      expiryDate: equipment.expiryDate ?? equipment.peremptionDate,
+    };
+    return apiRequest(`/operational-equipment/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
   delete: (id: string) => apiRequest(`/operational-equipment/${id}`, {
     method: 'DELETE',
   }),

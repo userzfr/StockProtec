@@ -126,6 +126,7 @@ export function ControlDialog({ open, onOpenChange, bag, controlType, onComplete
       bagId: bag.id,
       bagName: bag.name,
       timestamp: new Date().toISOString(),
+      userId: currentUser.id,
       user: currentUser.username,
       controlType,
       results: Array.from(results.values()),

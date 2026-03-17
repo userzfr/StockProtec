@@ -100,7 +100,7 @@ export function ControlHistoryViewer({ open, onOpenChange, bagId }: ControlHisto
                         {format(new Date(history.timestamp), 'dd MMMM yyyy à HH:mm', { locale: fr })}
                       </p>
                       <p className="text-sm text-gray-500">
-                        Par : {history.user}
+                        Par : {history.user || history.userId || 'Utilisateur inconnu'}
                       </p>
                     </div>
                     <Badge variant="outline">
