@@ -537,16 +537,38 @@ app.get('/api/control-history/bag/:bagId', (req, res) => {
 app.post('/api/control-history', (req, res) => {
   try {
     const { id, bagId, userId, controlType, deploymentLocation, timestamp, results } = req.body;
-    
+
+    if (!id || !bagId || !userId || !controlType) {
+      return res.status(400).json({ error: 'id, bagId, userId, controlType requis' });
+    }
+
+    const bagExists = db.prepare('SELECT 1 FROM bags WHERE id = ?').get(bagId);
+    if (!bagExists) {
+      return res.status(400).json({ error: `bagId ${bagId} introuvable` });
+    }
+
+    const userExists = db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId);
+    if (!userExists) {
+      return res.status(400).json({ error: `userId ${userId} introuvable` });
+    }
+
+    if (results && results.length > 0) {
+      const invalidItem = results.find((result) => {
+        const itemExists = db.prepare('SELECT 1 FROM bag_items WHERE id = ?').get(result.itemId);
+        return !itemExists;
+      });
+      if (invalidItem) {
+        return res.status(400).json({ error: `itemId ${invalidItem.itemId} introuvable` });
+      }
+    }
+
     db.transaction(() => {
-      // Créer l'entrée d'historique
       const insertHistory = db.prepare(`
         INSERT INTO control_history (id, bag_id, user_id, control_type, deployment_location, timestamp)
         VALUES (?, ?, ?, ?, ?, ?)
       `);
       insertHistory.run(id, bagId, userId, controlType, deploymentLocation, timestamp);
 
-      // Créer les résultats
       if (results && results.length > 0) {
         const insertResult = db.prepare(`
           INSERT INTO control_results (id, control_id, item_id, status, actual_quantity)
@@ -567,7 +589,8 @@ app.post('/api/control-history', (req, res) => {
 
     res.status(201).json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('control-history insertion error', error);
+    res.status(500).json({ error: 'Erreur lors de la création du contrôle (' + error.message + ')' });
   }
 });
 
