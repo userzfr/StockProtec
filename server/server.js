@@ -779,6 +779,213 @@ app.delete('/api/categories/:id', deleteCategoryLimiter, (req, res) => {
 });
 
 // ===============================
+// ROUTE DE MIGRATION
+// ===============================
+
+app.post('/api/migrate', (req, res) => {
+  try {
+    const { users, bags, pharmacyProducts, operationalEquipment, controlHistories, logs, bugReports, categories, customCategories } = req.body;
+
+    console.log('📤 Migration reçue du frontend');
+    console.log(`  - ${users?.length || 0} utilisateurs`);
+    console.log(`  - ${bags?.length || 0} sacs`);
+    console.log(`  - ${pharmacyProducts?.length || 0} produits pharmacie`);
+    console.log(`  - ${operationalEquipment?.length || 0} équipements`);
+    console.log(`  - ${controlHistories?.length || 0} historiques de contrôle`);
+    console.log(`  - ${logs?.length || 0} logs`);
+    console.log(`  - ${bugReports?.length || 0} rapports de bugs`);
+    console.log(`  - ${categories?.length || 0} catégories`);
+
+    let migratedCount = 0;
+
+    // Migrer les utilisateurs
+    if (users && Array.isArray(users)) {
+      for (const user of users) {
+        try {
+          const existing = db.prepare('SELECT id FROM users WHERE id = ?').get(user.id);
+          if (!existing) {
+            db.prepare(`
+              INSERT INTO users (id, nom, password, role, password_reset_requested, password_reset_date)
+              VALUES (?, ?, ?, ?, 0, NULL)
+            `).run(user.id, user.username || user.nom, user.password, user.role);
+            migratedCount++;
+          }
+        } catch (err) {
+          console.warn(`Erreur migration user ${user.id}:`, err.message);
+        }
+      }
+    }
+
+    // Migrer les sacs
+    if (bags && Array.isArray(bags)) {
+      for (const bag of bags) {
+        try {
+          const existing = db.prepare('SELECT id FROM bags WHERE id = ?').get(bag.id);
+          if (!existing) {
+            db.prepare(`
+              INSERT INTO bags (id, name, qrCode, deploymentStatus, deploymentLocation, deploymentDate, status, lastControlDate, createdAt, pockets)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              bag.id,
+              bag.name,
+              bag.qrCode,
+              bag.deploymentStatus || 'present',
+              bag.deploymentLocation || null,
+              bag.deploymentDate || null,
+              bag.status || 'ok',
+              bag.lastControlDate || null,
+              bag.createdAt || new Date().toISOString(),
+              JSON.stringify(bag.pockets || [])
+            );
+            migratedCount++;
+          }
+        } catch (err) {
+          console.warn(`Erreur migration bag ${bag.id}:`, err.message);
+        }
+      }
+    }
+
+    // Migrer les produits pharmacie
+    if (pharmacyProducts && Array.isArray(pharmacyProducts)) {
+      for (const product of pharmacyProducts) {
+        try {
+          const existing = db.prepare('SELECT id FROM pharmacy_products WHERE id = ?').get(product.id);
+          if (!existing) {
+            db.prepare(`
+              INSERT INTO pharmacy_products (id, barcode, name, category, lot_number, expiry_date, quantity, min_stock, location, supplier, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              product.id,
+              product.barcode,
+              product.name,
+              product.category,
+              product.lot || product.lotNumber,
+              product.expiryDate || product.expiry_date,
+              product.quantity,
+              product.minStock || 0,
+              product.location || null,
+              product.supplier || null,
+              product.createdAt || new Date().toISOString()
+            );
+            migratedCount++;
+          }
+        } catch (err) {
+          console.warn(`Erreur migration pharmacy product ${product.id}:`, err.message);
+        }
+      }
+    }
+
+    // Migrer l'équipement opérationnel
+    if (operationalEquipment && Array.isArray(operationalEquipment)) {
+      for (const equipment of operationalEquipment) {
+        try {
+          const existing = db.prepare('SELECT id FROM operational_equipment WHERE id = ?').get(equipment.id);
+          if (!existing) {
+            db.prepare(`
+              INSERT INTO operational_equipment (id, name, barcode, type, category, quantity, status, last_control_date, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              equipment.id,
+              equipment.name,
+              equipment.barcode,
+              equipment.type,
+              equipment.category,
+              equipment.quantity,
+              equipment.status || 'ok',
+              equipment.lastControlDate || null,
+              equipment.createdAt || new Date().toISOString()
+            );
+            migratedCount++;
+          }
+        } catch (err) {
+          console.warn(`Erreur migration equipment ${equipment.id}:`, err.message);
+        }
+      }
+    }
+
+    // Migrer les historiques de contrôle
+    if (controlHistories && Array.isArray(controlHistories)) {
+      for (const history of controlHistories) {
+        try {
+          const existing = db.prepare('SELECT id FROM control_history WHERE id = ?').get(history.id);
+          if (!existing) {
+            db.prepare(`
+              INSERT INTO control_history (id, bag_id, user_id, control_type, deployment_location, timestamp)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `).run(
+              history.id,
+              history.bagId || history.bag_id,
+              history.userId || history.user_id,
+              history.controlType || history.control_type,
+              history.deploymentLocation || history.deployment_location,
+              history.timestamp || new Date().toISOString()
+            );
+            migratedCount++;
+          }
+        } catch (err) {
+          console.warn(`Erreur migration control history ${history.id}:`, err.message);
+        }
+      }
+    }
+
+    // Migrer les logs
+    if (logs && Array.isArray(logs)) {
+      for (const log of logs) {
+        try {
+          db.prepare(`
+            INSERT INTO logs (id, timestamp, action, user_id, details)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(
+            log.id,
+            log.timestamp,
+            log.action,
+            log.user || log.user_id,
+            log.details
+          );
+          migratedCount++;
+        } catch (err) {
+          console.warn(`Erreur migration log ${log.id}:`, err.message);
+        }
+      }
+    }
+
+    // Migrer les rapports de bugs
+    if (bugReports && Array.isArray(bugReports)) {
+      for (const report of bugReports) {
+        try {
+          const existing = db.prepare('SELECT id FROM bug_reports WHERE id = ?').get(report.id);
+          if (!existing) {
+            db.prepare(`
+              INSERT INTO bug_reports (id, timestamp, user_id, page, description, user_agent, status, resolved_at, resolved_by)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              report.id,
+              report.timestamp,
+              report.user || report.user_id,
+              report.page,
+              report.description,
+              report.userAgent || report.user_agent,
+              report.status || 'new',
+              report.resolvedAt || report.resolved_at || null,
+              report.resolvedBy || report.resolved_by || null
+            );
+            migratedCount++;
+          }
+        } catch (err) {
+          console.warn(`Erreur migration bug report ${report.id}:`, err.message);
+        }
+      }
+    }
+
+    console.log(`✅ Migration terminée: ${migratedCount} enregistrements migrés`);
+    res.json({ success: true, message: `${migratedCount} enregistrements migrés avec succès`, migratedCount });
+  } catch (error) {
+    console.error('❌ Erreur lors de la migration:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===============================
 // ROUTE DE SANTÉ
 // ===============================
 

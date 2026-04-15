@@ -3,24 +3,42 @@
  * Toutes les requêtes passent par ce service
  */
 
+// En développement: utilise le proxy Vite (/api)
+// En production: utilise l'URL directe
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 // Helper pour gérer les requêtes
 async function apiRequest(endpoint: string, options: RequestInit = {}) {
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+  try {
+    const fullUrl = `${API_URL}${endpoint}`;
+    
+    console.log(`📤 [API] ${options.method || 'GET'} ${endpoint}`);
+    
+    const response = await fetch(fullUrl, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erreur API');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      const errorMessage = error.error || error.message || `HTTP ${response.status}`;
+      console.error(`❌ [API] Erreur ${response.status} sur ${endpoint}: ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    console.log(`✅ [API] ${endpoint} OK`);
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      console.error(`🔌 [API] Erreur de connexion - le serveur est peut-être hors ligne`);
+      throw new Error('Impossible de contacter le serveur. Vérifiez que l\'API est démarrée sur http://localhost:3001');
+    }
+    throw error;
   }
-
-  return response.json();
 }
 
 // ===============================
@@ -200,4 +218,15 @@ export const categoriesApi = {
 
 export const healthApi = {
   check: () => apiRequest('/health'),
+};
+
+// ===============================
+// API MIGRATION
+// ===============================
+
+export const migrationApi = {
+  migrateFromLocalStorage: (data: any) => apiRequest('/migrate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };

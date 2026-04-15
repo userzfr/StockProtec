@@ -1,5 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Button } from './ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/app/components/ui/alert';
+import { Button } from '@/app/components/ui/button';
 import { AlertCircle, RefreshCw, Server } from 'lucide-react';
 
 interface ApiConnectionAlertProps {
