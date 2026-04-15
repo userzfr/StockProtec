@@ -30,6 +30,7 @@ Si vous découvrez une vulnérabilité dans StockProtec, merci de la signaler de
 ## 🔐 Ce qui est couvert
 
 La politique couvre :
+
 - vulnérabilités de sécurité du code du backend
 - vulnérabilités de sécurité du code du frontend
 - problèmes liés à la base de données SQLite

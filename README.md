@@ -4,6 +4,7 @@
 Les versions antérieures ne sont plus supportées et ne reçoivent plus de correctifs de sécurité ni de mises à jour.
 
 Ce projet contient :
+
 - Un frontend React + Vite
 - Un backend Node.js + Express
 - Une base de données SQLite locale (`stockprotec.db`)
@@ -25,11 +26,13 @@ Ce projet contient :
 ## 🚀 Démarrage rapide
 
 1. Installer les dépendances :
+
    ```bash
    npm install
    ```
 
 2. Lancer le serveur et le frontend :
+
    ```bash
    npm run dev:all
    ```
@@ -57,6 +60,7 @@ La documentation principale se trouve dans le dossier `doc/` :
 ## 🔒 Objectif du projet
 
 StockProtec est conçu pour la gestion du matériel et du stock pharmacie de la Protection Civile. L'application vise à fournir :
+
 - inventaire précis des sacs de secours
 - suivi des équipements opérationnels
 - gestion du stock pharmacie
@@ -94,6 +98,7 @@ StockProtec est conçu pour la gestion du matériel et du stock pharmacie de la 
 ## 🧪 Validation
 
 Pour vérifier le bon fonctionnement :
+
 - `npm run build`
 - `npm run server`
 - `npm run dev`

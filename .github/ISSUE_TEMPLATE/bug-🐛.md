@@ -12,6 +12,7 @@ Une description claire et concise du bug.
 
 **Reproduction du bug**
 Étapes pour reproduire le bug :
+
 1. Accédez à « … »
 2. Cliquez sur « … »
 3. Faites défiler la page jusqu’à « … »
@@ -24,11 +25,13 @@ Une description claire et concise de ce que vous attendiez.
 Le cas échéant, ajoutez des captures d’écran pour expliquer votre problème.
 
 **Ordinateur (veuillez compléter les informations suivantes) :**
+
 - Système d’exploitation : [ex.: iOS, Windows]
 - Navigateur [ex.: Chrome, Safari]
 - Version [ex.: V.1.2]
 
 **Smartphone (veuillez compléter les informations suivantes) :**
+
 - Appareil : [ex.: iPhone6]
 - Système d’exploitation : [ex.: iOS8.1]
 - Navigateur [ex.: navigateur standard, Safari]
