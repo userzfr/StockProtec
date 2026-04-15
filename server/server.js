@@ -759,8 +759,16 @@ app.post('/api/categories', (req, res) => {
   }
 });
 
+// Limiteur de débit pour les suppressions de catégories
+const deleteCategoryLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // max 50 suppressions par fenêtre et par IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Supprimer une catégorie personnalisée
-app.delete('/api/categories/:id', (req, res) => {
+app.delete('/api/categories/:id', deleteCategoryLimiter, (req, res) => {
   try {
     const stmt = db.prepare('DELETE FROM custom_categories WHERE id = ?');
     stmt.run(req.params.id);
