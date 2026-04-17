@@ -195,5 +195,5 @@ VITE v6.4.2 ready in 966 ms
 ---
 
 **Date**: 15 avril 2026  
-**Auteur**: GitHub Copilot  
+**Auteur**: Mathieu MERLE  
 **Version**: v5.0.0

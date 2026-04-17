@@ -10,12 +10,14 @@
 ## 🏗️ Architecture technique
 
 ### Stack technologique
+
 - **Frontend** : React 18 + TypeScript + Vite
 - **Backend** : Node.js + Express + SQLite
 - **UI** : Tailwind CSS + shadcn/ui
 - **Base de données** : SQLite3 (fichier local)
 
 ### Structure du projet
+
 ```
 StockProtec/
 ├── src/                          # Frontend
@@ -39,6 +41,7 @@ StockProtec/
 ## 🚀 Démarrage développement
 
 ### Installation
+
 ```bash
 git clone https://github.com/mathieu-bergeron/StockProtec.git
 cd StockProtec
@@ -46,6 +49,7 @@ npm install
 ```
 
 ### Développement
+
 ```bash
 # Frontend + Backend
 npm run dev:all
@@ -56,6 +60,7 @@ npm run server   # Backend :3001
 ```
 
 ### Build production
+
 ```bash
 npm run build    # Build frontend
 npm run preview  # Test build local
@@ -64,25 +69,115 @@ npm run preview  # Test build local
 ## 🔧 Configuration
 
 ### Vite (Frontend)
+
 - **Port** : 5173
 - **Proxy API** : `/api/*` → `http://localhost:3001`
 - **Alias** : `@/` → `src/`
 
 ### Express (Backend)
+
 - **Port** : 3001
 - **CORS** : Autorise localhost:5173
 - **Base** : SQLite `stockprotec.db`
 
 ### Base de données
+
 - **Type** : SQLite3
 - **Fichier** : `stockprotec.db` (auto-créé)
 - **Migrations** : Automatiques au démarrage
+
+## 🔐 Gestion de session et sécurité
+
+### Authentification
+
+#### Flux de connexion
+
+1. Utilisateur soumet username + password via LoginPage
+2. Backend valide les credentials (POST `/api/login`)
+3. Retour du profil utilisateur (id, nom, role)
+4. Frontend sauvegarde l'état dans localStorage + React state
+5. Logs d'audit enregistrés automatiquement
+
+#### Endpoints clés
+
+```
+POST   /login              # Connexion (username, password)
+GET    /users/:id          # Vérifier existance utilisateur
+GET    /users              # Liste utilisateurs (admin)
+DELETE /users/:id          # Supprimer utilisateur (admin)
+POST   /system_logs        # Enregistrer logs d'audit
+```
+
+### Gestion des sessions
+
+#### Timeout d'inactivité
+
+- **Durée** : 10 minutes (600 000 ms)
+- **Détection** : Événements utilisateur (mousemove, keydown, touchstart, scroll)
+- **Validation** : Toutes les 10 secondes
+- **Action** : Déconnexion automatique avec message
+
+```typescript
+// Constants
+const SESSION_TIMEOUT_MS = 10 * 60 * 1000;           // 10 minutes
+const SESSION_VALIDATION_INTERVAL_MS = 10 * 1000;    // 10 secondes
+```
+
+#### Validation de session active
+
+- **Périodiquement** : Requête GET `/api/users/:id` pour vérifier que l'utilisateur existe
+- **Sur focus** : Validation immédiate quand l'utilisateur revient sur l'app
+- **À la suppression** : Vérification que l'utilisateur actuel n'a pas été supprimé
+- **Au démarrage** : Validation de la session stockée dans localStorage
+
+#### Structure de session
+
+```typescript
+interface AuthState {
+  isAuthenticated: boolean;    // État connexion
+  user: User | null;          // Profil utilisateur
+  lastActivity: string | null; // ISO timestamp dernière activité
+}
+```
+
+### Déconnexion automatique
+
+#### Cas de déconnexion
+
+1. **Timeout inactivité** : 10 minutes sans interaction
+2. **Compte supprimé** : Admin supprime le compte actuel
+3. **Validation échouée** : L'utilisateur n'existe plus en base
+4. **Focus app** : Validation à chaque retour sur l'application
+
+#### Processus
+
+1. Enregistrement du log de déconnexion
+2. Suppression de l'état localStorage
+3. Réinitialisation du state React
+4. Redirection vers LoginPage
+5. Message de confirmation à l'utilisateur
+
+### Sécurité des opérations admin
+
+#### Limitations
+
+- **Auto-suppression** : Impossible de supprimer son propre compte (UI)
+- **Validation admin** : Les actions admin nécessitent une session valide
+- **Logs d'audit** : Chaque action enregistrée avec username + timestamp
+- **Suppression en cascade** : Les logs conservent la référence anonyme
+
+### Tester la déconnexion
+
+1. **Timeout** : Ouvrir app, attendre 10 min sans interaction
+2. **Suppression** : Ouvrir 2 onglets, supprimer l'utilisateur d'un onglet
+3. **Validation** : Fermer/réouvrir l'app après > 10 min
 
 ## 📡 API Endpoints
 
 ### Base URL: `http://localhost:3001/api`
 
 ### Bags (Sacs)
+
 ```
 GET    /bags              # Liste tous les sacs
 POST   /bags              # Créer un sac
@@ -92,6 +187,7 @@ GET    /bags/:id          # Détails d'un sac
 ```
 
 ### Categories
+
 ```
 GET    /categories        # Liste catégories
 POST   /categories        # Créer catégorie
@@ -100,6 +196,7 @@ DELETE /categories/:id    # Supprimer catégorie
 ```
 
 ### Pharmacy Products
+
 ```
 GET    /pharmacy-products  # Liste produits
 POST   /pharmacy-products  # Créer produit
@@ -108,6 +205,7 @@ DELETE /pharmacy-products/:id  # Supprimer
 ```
 
 ### Authentification
+
 ```
 POST   /auth/login        # Connexion
 POST   /auth/logout       # Déconnexion
@@ -115,6 +213,7 @@ GET    /auth/me           # Info utilisateur
 ```
 
 ### Migration
+
 ```
 POST   /migrate           # Migrer localStorage → SQLite
 ```
@@ -122,6 +221,7 @@ POST   /migrate           # Migrer localStorage → SQLite
 ## 🗄️ Schéma base de données
 
 ### Tables principales
+
 ```sql
 -- Sacs de secours
 CREATE TABLE bags (
@@ -176,17 +276,20 @@ CREATE TABLE logs (
 ## 🔄 Migration localStorage → SQLite
 
 ### Déclenchement automatique
+
 - Détecte les données `localStorage` au démarrage
 - Ouvre `MigrationDialog` automatiquement
 - Migration en un clic
 
 ### Données migrées
+
 - `bags` → table `bags`
 - `categories` → table `categories`
 - `pharmacyProducts` → table `pharmacy_products`
 - `users` → table `users`
 
 ### Post-migration
+
 - `localStorage` nettoyé (sauf `authState`)
 - Base SQLite créée/populée
 - Confirmation utilisateur
@@ -194,18 +297,21 @@ CREATE TABLE logs (
 ## 🧪 Tests et validation
 
 ### Tests automatiques
+
 ```bash
 npm test          # Tests unitaires
 npm run test:e2e  # Tests end-to-end
 ```
 
 ### Tests manuels
+
 - Créer/Modifier/Supprimer des entités
 - Vérifier persistance après refresh
 - Tester l'authentification
 - Valider les migrations
 
 ### Debugging
+
 ```javascript
 // Console navigateur (F12)
 // Logs API: 📤 [API] POST /api/bags
@@ -218,12 +324,14 @@ npm run test:e2e  # Tests end-to-end
 ## 🚀 Déploiement
 
 ### Build production
+
 ```bash
 npm run build
 # Génère dist/ avec assets optimisés
 ```
 
 ### Déploiement local
+
 ```bash
 # Servir le build
 npm run preview  # Vite preview server
@@ -233,22 +341,26 @@ npx serve dist
 ```
 
 ### Variables environnement
+
 - Pas de variables requises pour usage standard
 - Configuration en dur dans le code
 
 ## 🔒 Sécurité
 
 ### Authentification
+
 - Sessions basées sur `localStorage.authState`
 - Mots de passe hashés (bcrypt)
 - Routes API protégées
 
 ### Données sensibles
+
 - Rien en localStorage (sauf session)
 - Base SQLite chiffrable si besoin
 - Pas de données envoyées à des serveurs externes
 
 ### CORS et headers
+
 - CORS configuré pour développement local
 - Headers de sécurité basiques
 - Rate limiting non implémenté
@@ -256,16 +368,19 @@ npx serve dist
 ## 📈 Performance
 
 ### Optimisations frontend
+
 - Vite HMR (Hot Module Replacement)
 - Tree shaking automatique
 - Code splitting avec dynamic imports
 
 ### Optimisations backend
+
 - SQLite optimisé pour lectures/écritures locales
 - Requêtes préparées
 - Indexes sur les clés étrangères
 
 ### Métriques
+
 - Taille bundle : ~600KB gzippé
 - Temps de build : ~10s
 - Démarrage serveur : ~2s
@@ -273,16 +388,19 @@ npx serve dist
 ## 🐛 Debugging et maintenance
 
 ### Logs
+
 - **Frontend** : Console navigateur
 - **Backend** : Terminal serveur
 - **Base** : Requêtes SQL loggées
 
 ### Outils de développement
+
 - React DevTools
 - SQLite Browser (pour inspection DB)
 - VS Code extensions recommandées
 
 ### Commandes utiles
+
 ```bash
 # Inspecter la base
 sqlite3 stockprotec.db
