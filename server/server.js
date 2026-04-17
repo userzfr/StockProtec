@@ -1000,7 +1000,7 @@ app.use(spaFallbackLimiter, (req, res) => {
 });
 
 // Démarrer le serveur
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur API démarré sur http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Serveur API démarré sur http://0.0.0.0:${PORT}`);
   console.log(`📊 Base de données : stockprotec.db`);
 });
