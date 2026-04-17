@@ -39,13 +39,13 @@ export function migrateFromLocalStorage(data) {
   `);
 
   const insertControlHistory = db.prepare(`
-    INSERT OR IGNORE INTO control_history (id, bag_id, user_id, control_type, deployment_location, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO control_history (id, bag_id, user_id, control_type, deployment_location, timestamp, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertControlResult = db.prepare(`
-    INSERT OR IGNORE INTO control_results (id, control_id, item_id, status, actual_quantity)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO control_results (id, control_id, item_id, status, actual_quantity, item_name, pocket_name, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertLog = db.prepare(`

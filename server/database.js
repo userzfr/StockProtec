@@ -69,6 +69,23 @@ export function initializeDatabase() {
     db.exec(`ALTER TABLE users ADD COLUMN password_reset_date TEXT`);
   } catch {}
 
+  // Créer un utilisateur factice pour les utilisateurs supprimés
+  try {
+    const insertDeletedUser = db.prepare(`
+      INSERT OR IGNORE INTO users (id, nom, password, role, date_creation)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    insertDeletedUser.run(
+      'deleted-user',
+      'Utilisateur supprimé',
+      'deleted-password',
+      'user',
+      new Date().toISOString()
+    );
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation de l\'utilisateur supprimé :', error);
+  }
+
   // Table des sacs opérationnels
   db.exec(`
     CREATE TABLE IF NOT EXISTS bags (
@@ -148,6 +165,7 @@ export function initializeDatabase() {
       control_type TEXT NOT NULL CHECK(control_type IN ('quick', 'departure', 'return')),
       deployment_location TEXT,
       timestamp TEXT DEFAULT (datetime('now')),
+      notes TEXT,
       FOREIGN KEY (bag_id) REFERENCES bags(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -161,6 +179,9 @@ export function initializeDatabase() {
       item_id TEXT NOT NULL,
       status TEXT CHECK(status IN ('present', 'missing', 'damaged')),
       actual_quantity INTEGER,
+      item_name TEXT,
+      pocket_name TEXT,
+      notes TEXT,
       FOREIGN KEY (control_id) REFERENCES control_history(id) ON DELETE CASCADE,
       FOREIGN KEY (item_id) REFERENCES bag_items(id)
     )
@@ -184,12 +205,58 @@ export function initializeDatabase() {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       category TEXT NOT NULL,
+      page TEXT,
       description TEXT NOT NULL,
-      status TEXT DEFAULT 'ouvert' CHECK(status IN ('ouvert', 'en cours', 'résolu')),
+      user_agent TEXT,
+      status TEXT DEFAULT 'new' CHECK(status IN ('new', 'in-progress', 'resolved')),
+      resolved_at TEXT,
+      resolved_by TEXT,
       timestamp TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
     )
   `);
+  
+  // Migrations de schéma SQLite existant
+  try {
+    db.exec('ALTER TABLE bug_reports ADD COLUMN page TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE bug_reports ADD COLUMN user_agent TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE bug_reports ADD COLUMN resolved_at TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE bug_reports ADD COLUMN resolved_by TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE control_history ADD COLUMN notes TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE control_results ADD COLUMN item_name TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE control_results ADD COLUMN pocket_name TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE control_results ADD COLUMN notes TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
 
   // Table des rapports d'inspection
   db.exec(`

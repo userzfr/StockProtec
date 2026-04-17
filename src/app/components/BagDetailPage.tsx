@@ -10,11 +10,13 @@ import { ControlDialog } from './ControlDialog';
 import { ControlHistoryViewer } from './ControlHistoryViewer';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { bagsApi, controlHistoryApi } from '@/app/services/api';
+import { bagsApi, controlHistoryApi, logsApi } from '@/app/services/api';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 export function BagDetailPage() {
   const { qrCode } = useParams<{ qrCode: string }>();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [bag, setBag] = useState<Bag | null>(null);
   const [controlDialogOpen, setControlDialogOpen] = useState(false);
   const [controlType, setControlType] = useState<'quick' | 'departure' | 'return'>('quick');
@@ -111,6 +113,30 @@ export function BagDetailPage() {
         lastControlDate: updatedBag.lastControlDate,
       });
       setBag(updatedBag);
+
+      try {
+        const action = history.controlType === 'departure'
+          ? 'BAG_DEPLOY'
+          : history.controlType === 'return'
+          ? 'BAG_RETURN'
+          : 'BAG_CHECK';
+
+        const details = history.controlType === 'departure'
+          ? `Sortie en poste du sac "${bag.name}" vers ${history.deploymentLocation}`
+          : history.controlType === 'return'
+          ? `Retour en poste du sac "${bag.name}"`
+          : `Vérification rapide du sac "${bag.name}"`;
+
+        await logsApi.create({
+          id: Date.now().toString(),
+          timestamp: new Date().toISOString(),
+          action,
+          user: currentUser.username,
+          details,
+        });
+      } catch (error) {
+        console.error('Erreur lors de l\'enregistrement du log de contrôle :', error);
+      }
 
       toast.success('Contrôle enregistré avec succès');
       setControlDialogOpen(false);

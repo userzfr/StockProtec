@@ -11,7 +11,10 @@
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
     "dev:all:pg": "concurrently \"npm run dev\" \"npm run server:pg\"",
     "seed": "node server/seed.js",
-    "migrate:to-pg": "node server/migrate_to_pg.js"
+    "migrate:to-pg": "node server/migrate_to_pg.js",
+    "setup": "node scripts/setup.js",
+    "prod": "node scripts/start.js",
+    "prod:force": "FORCE_BUILD=true node scripts/start.js"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

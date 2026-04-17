@@ -51,6 +51,7 @@ export const usersApi = {
     body: JSON.stringify({ username, password }),
   }),
   getAll: () => apiRequest('/users'),
+  getById: (id: string) => apiRequest(`/users/${id}`),
   create: (user: any) => apiRequest('/users', {
     method: 'POST',
     body: JSON.stringify(user),

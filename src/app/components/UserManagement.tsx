@@ -15,9 +15,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 interface UserManagementProps {
   currentUser: User;
   onAddLog: (action: string, user: string, details: string) => void;
+  onLogout: () => void;
 }
 
-export function UserManagement({ currentUser, onAddLog }: UserManagementProps) {
+export function UserManagement({ currentUser, onAddLog, onLogout }: UserManagementProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [newUser, setNewUser] = useState({
     username: '',
@@ -104,6 +105,17 @@ export function UserManagement({ currentUser, onAddLog }: UserManagementProps) {
       onAddLog('DELETE_USER', currentUser.username, `Suppression de l'utilisateur: ${user.username}`);
       toast.success('Utilisateur supprimé avec succès');
       setDeletingUserId(null);
+
+      // Valider que l'utilisateur actuel existe encore (au cas où il se serait supprimé)
+      try {
+        await usersApi.getById(currentUser.id);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('Utilisateur non trouvé') || errorMessage.includes('404')) {
+          toast.error('Votre compte a été supprimé. Déconnexion en cours...');
+          onLogout();
+        }
+      }
     } catch (error) {
       console.error('Erreur lors de la suppression de l\'utilisateur :', error);
       toast.error('Impossible de supprimer l\'utilisateur');
@@ -237,6 +249,7 @@ export function UserManagement({ currentUser, onAddLog }: UserManagementProps) {
                           size="sm"
                           onClick={() => setDeletingUserId(user.id)}
                           disabled={user.id === currentUser.id}
+                          title={user.id === currentUser.id ? 'Vous ne pouvez pas supprimer votre propre compte' : 'Supprimer cet utilisateur'}
                           className="hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
                         >
                           <Trash2 className="size-4" />

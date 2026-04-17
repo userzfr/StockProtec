@@ -13,9 +13,10 @@ interface AdminPanelProps {
   onClose: () => void;
   currentUser: User;
   onAddLog: (action: string, user: string, details: string) => void;
+  onLogout: () => void;
 }
 
-export function AdminPanel({ isOpen, onClose, currentUser, onAddLog }: AdminPanelProps) {
+export function AdminPanel({ isOpen, onClose, currentUser, onAddLog, onLogout }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState('users');
 
   return (
@@ -47,7 +48,7 @@ export function AdminPanel({ isOpen, onClose, currentUser, onAddLog }: AdminPane
 
           <div className="flex-1 overflow-auto mt-4">
             <TabsContent value="users" className="mt-0 h-full">
-              <UserManagement currentUser={currentUser} onAddLog={onAddLog} />
+              <UserManagement currentUser={currentUser} onAddLog={onAddLog} onLogout={onLogout} />
             </TabsContent>
 
             <TabsContent value="password-reset" className="mt-0 h-full">

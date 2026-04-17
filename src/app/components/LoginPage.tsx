@@ -119,7 +119,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   <Input
                     id="username"
                     type="text"
-                    placeholder="Entrez votre nom d'utilisateur (admin)"
+                    placeholder="Entrez votre nom d'utilisateur"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="pl-10"

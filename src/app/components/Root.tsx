@@ -108,6 +108,7 @@ export function Root() {
           onClose={() => setIsAdminOpen(false)}
           currentUser={currentUser}
           onAddLog={addLog}
+          onLogout={logout}
         />
       )}
 

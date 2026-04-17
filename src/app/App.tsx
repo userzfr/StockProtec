@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { LoginPage } from '@/app/components/LoginPage';
@@ -181,12 +181,17 @@ export interface BugReport {
 export interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
+  lastActivity: string | null;
 }
+
+const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
+const SESSION_VALIDATION_INTERVAL_MS = 10 * 1000;
 
 export default function App() {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
-    user: null
+    user: null,
+    lastActivity: null,
   });
 
   useEffect(() => {
@@ -533,14 +538,25 @@ export default function App() {
     // Check if user is already logged in
     const savedAuth = localStorage.getItem('authState');
     if (savedAuth) {
-      setAuthState(JSON.parse(savedAuth));
+      const parsedAuth = JSON.parse(savedAuth) as AuthState;
+      if (parsedAuth.isAuthenticated && parsedAuth.user && parsedAuth.lastActivity) {
+        const elapsed = Date.now() - new Date(parsedAuth.lastActivity).getTime();
+        if (elapsed < SESSION_TIMEOUT_MS) {
+          setAuthState(parsedAuth);
+        } else {
+          localStorage.removeItem('authState');
+        }
+      } else {
+        localStorage.removeItem('authState');
+      }
     }
   }, []);
 
   const handleLogin = async (user: User) => {
     const newAuthState = {
       isAuthenticated: true,
-      user
+      user,
+      lastActivity: new Date().toISOString(),
     };
     setAuthState(newAuthState);
     localStorage.setItem('authState', JSON.stringify(newAuthState));
@@ -559,7 +575,7 @@ export default function App() {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     if (authState.user) {
       try {
         await logsApi.create({
@@ -574,8 +590,86 @@ export default function App() {
       }
     }
     localStorage.removeItem('authState');
-    setAuthState({ isAuthenticated: false, user: null });
-  };
+    setAuthState({ isAuthenticated: false, user: null, lastActivity: null });
+  }, [authState.user]);
+
+  const refreshActivity = useCallback(() => {
+    setAuthState((prevState) => {
+      if (!prevState.isAuthenticated || !prevState.user) {
+        return prevState;
+      }
+      const nextState = {
+        ...prevState,
+        lastActivity: new Date().toISOString(),
+      };
+      localStorage.setItem('authState', JSON.stringify(nextState));
+      return nextState;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!authState.isAuthenticated || !authState.lastActivity) {
+      return;
+    }
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    const handleUserActivity = () => refreshActivity();
+
+    events.forEach((event) => window.addEventListener(event, handleUserActivity));
+
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, handleUserActivity));
+    };
+  }, [authState.isAuthenticated, authState.lastActivity, refreshActivity]);
+
+  useEffect(() => {
+    if (!authState.isAuthenticated || !authState.lastActivity) {
+      return;
+    }
+
+    const checkTimeout = () => {
+      const elapsed = Date.now() - new Date(authState.lastActivity).getTime();
+      if (elapsed > SESSION_TIMEOUT_MS) {
+        toast.info('Votre session a expiré après 10 minutes d\'inactivité.');
+        handleLogout();
+      }
+    };
+
+    const timeoutInterval = window.setInterval(checkTimeout, 30 * 1000);
+    return () => window.clearInterval(timeoutInterval);
+  }, [authState.isAuthenticated, authState.lastActivity, handleLogout]);
+
+  useEffect(() => {
+    if (!authState.isAuthenticated || !authState.user) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const validateSession = async () => {
+      try {
+        await usersApi.getById(authState.user!.id);
+      } catch (error) {
+        if (cancelled) return;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('Utilisateur non trouvé') || errorMessage.includes('404')) {
+          toast.error('Votre session n\'est plus valide car votre compte a été supprimé.');
+          handleLogout();
+        }
+      }
+    };
+
+    validateSession();
+    const validationInterval = window.setInterval(validateSession, SESSION_VALIDATION_INTERVAL_MS);
+    const handleFocus = () => validateSession();
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleFocus);
+      window.clearInterval(validationInterval);
+    };
+  }, [authState.isAuthenticated, authState.user, handleLogout]);
 
   if (!authState.isAuthenticated) {
     return (

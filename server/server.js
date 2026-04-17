@@ -41,6 +41,19 @@ app.get('/api/users', (req, res) => {
   }
 });
 
+// Récupérer un utilisateur par son ID
+app.get('/api/users/:id', (req, res) => {
+  try {
+    const user = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date FROM users WHERE id = ?').get(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Login avec username et password
 app.post('/api/login', (req, res) => {
   try {
@@ -115,8 +128,26 @@ app.put('/api/users/:id', (req, res) => {
 // Supprimer un utilisateur
 app.delete('/api/users/:id', (req, res) => {
   try {
-    const stmt = db.prepare('DELETE FROM users WHERE id = ?');
-    stmt.run(req.params.id);
+    const userId = req.params.id;
+    const deletedUserId = 'deleted-user';
+
+    db.transaction(() => {
+      // Récupérer le nom de l'utilisateur avant suppression
+      const user = db.prepare('SELECT nom FROM users WHERE id = ?').get(userId);
+      const userName = user ? user.nom : 'Utilisateur supprimé';
+
+      // Remplacer les références liées à ce compte par l'utilisateur supprimé
+      db.prepare('UPDATE system_logs SET user_id = ? WHERE user_id = ?').run(deletedUserId, userId);
+      db.prepare('UPDATE bug_reports SET user_id = ? WHERE user_id = ?').run(deletedUserId, userId);
+      db.prepare('UPDATE control_history SET user_id = ? WHERE user_id = ?').run(deletedUserId, userId);
+
+      // Mettre à jour l'inspecteur textuel des rapports d'inspection
+      db.prepare('UPDATE inspection_reports SET inspector = ? WHERE inspector = ?').run('Utilisateur supprimé', userName);
+
+      // Supprimer l'utilisateur
+      db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    })();
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -486,7 +517,14 @@ app.delete('/api/operational-equipment/:id', (req, res) => {
 // Récupérer tous les historiques de contrôle
 app.get('/api/control-history', (req, res) => {
   try {
-    const histories = db.prepare('SELECT * FROM control_history ORDER BY timestamp DESC').all();
+    const histories = db.prepare(`
+      SELECT
+        control_history.*,
+        COALESCE(users.nom, 'Utilisateur supprimé') AS user
+      FROM control_history
+      LEFT JOIN users ON control_history.user_id = users.id
+      ORDER BY control_history.timestamp DESC
+    `).all();
     
     const formatted = histories.map(h => {
       const results = db.prepare('SELECT * FROM control_results WHERE control_id = ?').all(h.id);
@@ -495,13 +533,18 @@ app.get('/api/control-history', (req, res) => {
         id: h.id,
         bagId: h.bag_id,
         userId: h.user_id,
+        user: h.user,
         controlType: h.control_type,
         deploymentLocation: h.deployment_location,
         timestamp: h.timestamp,
+        notes: h.notes,
         results: results.map(r => ({
           itemId: r.item_id,
+          itemName: r.item_name,
+          pocketName: r.pocket_name,
           status: r.status,
-          actualQuantity: r.actual_quantity
+          actualQuantity: r.actual_quantity,
+          notes: r.notes
         }))
       };
     });
@@ -515,7 +558,15 @@ app.get('/api/control-history', (req, res) => {
 // Récupérer l'historique pour un sac spécifique
 app.get('/api/control-history/bag/:bagId', (req, res) => {
   try {
-    const histories = db.prepare('SELECT * FROM control_history WHERE bag_id = ? ORDER BY timestamp DESC').all(req.params.bagId);
+    const histories = db.prepare(`
+      SELECT
+        control_history.*,
+        COALESCE(users.nom, 'Utilisateur supprimé') AS user
+      FROM control_history
+      LEFT JOIN users ON control_history.user_id = users.id
+      WHERE control_history.bag_id = ?
+      ORDER BY control_history.timestamp DESC
+    `).all(req.params.bagId);
     
     const formatted = histories.map(h => {
       const results = db.prepare('SELECT * FROM control_results WHERE control_id = ?').all(h.id);
@@ -524,13 +575,18 @@ app.get('/api/control-history/bag/:bagId', (req, res) => {
         id: h.id,
         bagId: h.bag_id,
         userId: h.user_id,
+        user: h.user,
         controlType: h.control_type,
         deploymentLocation: h.deployment_location,
         timestamp: h.timestamp,
+        notes: h.notes,
         results: results.map(r => ({
           itemId: r.item_id,
+          itemName: r.item_name,
+          pocketName: r.pocket_name,
           status: r.status,
-          actualQuantity: r.actual_quantity
+          actualQuantity: r.actual_quantity,
+          notes: r.notes
         }))
       };
     });
@@ -544,7 +600,7 @@ app.get('/api/control-history/bag/:bagId', (req, res) => {
 // Créer un contrôle
 app.post('/api/control-history', (req, res) => {
   try {
-    const { id, bagId, userId, controlType, deploymentLocation, timestamp, results } = req.body;
+    const { id, bagId, userId, controlType, deploymentLocation, timestamp, notes, results } = req.body;
 
     if (!id || !bagId || !userId || !controlType) {
       return res.status(400).json({ error: 'id, bagId, userId, controlType requis' });
@@ -572,15 +628,15 @@ app.post('/api/control-history', (req, res) => {
 
     db.transaction(() => {
       const insertHistory = db.prepare(`
-        INSERT INTO control_history (id, bag_id, user_id, control_type, deployment_location, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO control_history (id, bag_id, user_id, control_type, deployment_location, timestamp, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
-      insertHistory.run(id, bagId, userId, controlType, deploymentLocation, timestamp);
+      insertHistory.run(id, bagId, userId, controlType, deploymentLocation, timestamp, notes || null);
 
       if (results && results.length > 0) {
         const insertResult = db.prepare(`
-          INSERT INTO control_results (id, control_id, item_id, status, actual_quantity)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO control_results (id, control_id, item_id, status, actual_quantity, item_name, pocket_name, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
         
         results.forEach(result => {
@@ -589,7 +645,10 @@ app.post('/api/control-history', (req, res) => {
             id,
             result.itemId,
             result.status || null,
-            result.actualQuantity !== undefined ? result.actualQuantity : null
+            result.actualQuantity !== undefined ? result.actualQuantity : null,
+            result.itemName || null,
+            result.pocketName || null,
+            result.notes || null
           );
         });
       }
@@ -609,7 +668,18 @@ app.post('/api/control-history', (req, res) => {
 // Récupérer tous les logs
 app.get('/api/logs', (req, res) => {
   try {
-    const logs = db.prepare('SELECT * FROM system_logs ORDER BY timestamp DESC').all();
+    const logs = db.prepare(`
+      SELECT
+        system_logs.id,
+        system_logs.timestamp,
+        system_logs.action,
+        system_logs.details,
+        system_logs.user_id,
+        COALESCE(users.nom, 'Utilisateur supprimé') AS user
+      FROM system_logs
+      LEFT JOIN users ON system_logs.user_id = users.id
+      ORDER BY system_logs.timestamp DESC
+    `).all();
     res.json(logs);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -619,12 +689,21 @@ app.get('/api/logs', (req, res) => {
 // Créer un log
 app.post('/api/logs', (req, res) => {
   try {
-    const { id, userId, action, details, timestamp } = req.body;
+    const { id, userId, user, action, details, timestamp } = req.body;
+    let resolvedUserId = userId;
+
+    if (!resolvedUserId && user) {
+      const userRow = db.prepare('SELECT id FROM users WHERE nom = ?').get(user);
+      if (userRow) {
+        resolvedUserId = userRow.id;
+      }
+    }
+
     const stmt = db.prepare(`
       INSERT INTO system_logs (id, user_id, action, details, timestamp)
       VALUES (?, ?, ?, ?, ?)
     `);
-    stmt.run(id, userId, action, details, timestamp);
+    stmt.run(id, resolvedUserId, action, details, timestamp);
     res.status(201).json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -646,11 +725,41 @@ app.delete('/api/logs', (req, res) => {
 // ROUTES RAPPORTS DE BUGS
 // ===============================
 
+const bugReportStatusToDb = {
+  new: 'ouvert',
+  'in-progress': 'en cours',
+  resolved: 'résolu',
+};
+
+const bugReportStatusFromDb = {
+  ouvert: 'new',
+  'en cours': 'in-progress',
+  résolu: 'resolved',
+};
+
 // Récupérer tous les rapports de bugs
 app.get('/api/bug-reports', (req, res) => {
   try {
-    const reports = db.prepare('SELECT * FROM bug_reports ORDER BY timestamp DESC').all();
-    res.json(reports);
+    const reports = db.prepare(`
+      SELECT
+        bug_reports.id,
+        bug_reports.timestamp,
+        bug_reports.page,
+        bug_reports.description,
+        bug_reports.user_agent AS userAgent,
+        bug_reports.status,
+        bug_reports.resolved_at AS resolvedAt,
+        bug_reports.resolved_by AS resolvedBy,
+        COALESCE(users.nom, 'Utilisateur supprimé') AS user
+      FROM bug_reports
+      LEFT JOIN users ON bug_reports.user_id = users.id
+      ORDER BY bug_reports.timestamp DESC
+    `).all();
+
+    res.json(reports.map(report => ({
+      ...report,
+      status: bugReportStatusFromDb[report.status] || report.status,
+    })));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -659,24 +768,36 @@ app.get('/api/bug-reports', (req, res) => {
 // Créer un rapport de bug
 app.post('/api/bug-reports', (req, res) => {
   try {
-    const { id, userId, category, description, status, timestamp } = req.body;
+    const { id, userId, user, category, page, description, userAgent, status, timestamp } = req.body;
+    let resolvedUserId = userId;
+
+    if (!resolvedUserId && user) {
+      const userRow = db.prepare('SELECT id FROM users WHERE nom = ?').get(user);
+      if (userRow) {
+        resolvedUserId = userRow.id;
+      }
+    }
+
+    const categoryValue = category || page || 'bug_report';
+    const statusDb = bugReportStatusToDb[status] || status || 'ouvert';
+
     const stmt = db.prepare(`
-      INSERT INTO bug_reports (id, user_id, category, description, status, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO bug_reports (id, user_id, category, page, description, user_agent, status, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, userId, category, description, status || 'ouvert', timestamp);
+    stmt.run(id, resolvedUserId, categoryValue, page || null, description, userAgent || null, statusDb, timestamp);
     res.status(201).json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 // Mettre à jour le statut d'un rapport de bug
 app.put('/api/bug-reports/:id', (req, res) => {
   try {
     const { status } = req.body;
+    const statusDb = bugReportStatusToDb[status] || status || 'ouvert';
     const stmt = db.prepare('UPDATE bug_reports SET status = ? WHERE id = ?');
-    stmt.run(status, req.params.id);
+    stmt.run(statusDb, req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
