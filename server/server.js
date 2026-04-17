@@ -1000,7 +1000,12 @@ app.use(spaFallbackLimiter, (req, res) => {
 });
 
 // Démarrer le serveur
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Serveur API démarré sur http://0.0.0.0:${PORT}`);
+const HOST = process.env.NODE_ENV === 'production' ? 'localhost' : '0.0.0.0';
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Serveur API démarré sur http://${HOST}:${PORT}`);
   console.log(`📊 Base de données : stockprotec.db`);
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`🔒 Mode production : acces restreint a localhost`);
+    console.log(`🌐 Utilisez un reverse proxy pour exposer l'application`);
+  }
 });
