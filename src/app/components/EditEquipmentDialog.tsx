@@ -20,20 +20,21 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
   const [name, setName] = useState(equipment.name);
   const [type, setType] = useState<OperationalEquipment['type']>(equipment.type);
   const [quantity, setQuantity] = useState(equipment.quantity);
-  const [controlDate, setControlDate] = useState(equipment.controlDate || '');
+  const [controlDate, setControlDate] = useState(equipment.controlDate ? equipment.controlDate.split('T')[0] : '');
   const [status, setStatus] = useState<OperationalEquipment['status']>(equipment.status || 'ok');
   const [notes, setNotes] = useState(equipment.notes || '');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setName(equipment.name);
     setType(equipment.type);
     setQuantity(equipment.quantity);
-    setControlDate(equipment.controlDate || '');
+    setControlDate(equipment.controlDate ? equipment.controlDate.split('T')[0] : '');
     setStatus(equipment.status || 'ok');
     setNotes(equipment.notes || '');
   }, [equipment]);
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!name.trim()) {
       toast.error('Veuillez saisir un nom de matériel');
       return;
@@ -44,20 +45,29 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
       return;
     }
 
-    const updatedEquipment: OperationalEquipment = {
-      ...equipment,
-      name: name.trim(),
-      type,
-      quantity,
-      controlDate: controlDate || undefined,
-      status,
-      notes: notes.trim() || undefined,
-      lastControlDate: new Date().toISOString(),
-    };
+    try {
+      setIsLoading(true);
+      
+      const updatedEquipment: OperationalEquipment = {
+        ...equipment,
+        name: name.trim(),
+        type,
+        quantity,
+        controlDate: controlDate ? new Date(controlDate).toISOString().split('T')[0] : undefined,
+        status,
+        notes: notes.trim() || undefined,
+        lastControlDate: new Date().toISOString(),
+      };
 
-    onUpdateEquipment(updatedEquipment);
-    toast.success(`Matériel "${name}" mis à jour avec succès`);
-    onOpenChange(false);
+      onUpdateEquipment(updatedEquipment);
+      toast.success(`Matériel "${name}" mis à jour avec succès`);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour:', error);
+      toast.error('Une erreur est survenue lors de la mise à jour');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -152,12 +162,12 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Annuler
           </Button>
-          <Button onClick={handleUpdate} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={handleUpdate} className="bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
             <Save className="w-4 h-4 mr-2" />
-            Enregistrer
+            {isLoading ? 'Enregistrement...' : 'Enregistrer'}
           </Button>
         </DialogFooter>
       </DialogContent>

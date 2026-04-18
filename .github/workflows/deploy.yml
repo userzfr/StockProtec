@@ -1,0 +1,69 @@
+name: Deploy to Server
+
+# Déclencher le déploiement lors d'un push sur la branche main
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Permettre un déploiement manuel
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      # ⚠️ CONFIGURATION REQUISE ⚠️
+      # Remplacez les variables suivantes dans GitHub Settings > Secrets and variables:
+      # - DEPLOY_HOST: L'adresse IP ou le domaine de votre serveur
+      # - DEPLOY_USER: L'utilisateur SSH pour la connexion
+      # - DEPLOY_KEY: La clé SSH privée pour l'authentification
+      # - DEPLOY_PATH: Le chemin du répertoire cible sur le serveur
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 22
+          script: |
+            # Naviguer vers le répertoire du projet
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            # Récupérer les derniers changements
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Installer les dépendances
+            npm ci --production
+            
+            # Construire le projet
+            npm run build
+            
+            # Redémarrer le service (selon votre configuration)
+            # sudo systemctl restart stockprotec
+            # Ou si vous utilisez PM2:
+            pm2 restart stockprotec || pm2 start "npm run prod" --name stockprotec
+
+      - name: Notify deployment success
+        if: success()
+        run: echo "✅ Déploiement réussi!"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: echo "❌ Erreur lors du déploiement"

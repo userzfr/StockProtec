@@ -23,6 +23,7 @@ export function CreateEquipmentDialog({ open, onOpenChange, onCreateEquipment }:
   const [controlDate, setControlDate] = useState('');
   const [status, setStatus] = useState<OperationalEquipment['status']>('ok');
   const [notes, setNotes] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -35,28 +36,37 @@ export function CreateEquipmentDialog({ open, onOpenChange, onCreateEquipment }:
       return;
     }
 
-    const newEquipment: OperationalEquipment = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      barcode: await generateUniqueBarcode(),
-      type,
-      quantity,
-      controlDate: controlDate || undefined,
-      status,
-      notes: notes.trim() || undefined,
-    };
+    try {
+      setIsLoading(true);
+      
+      const newEquipment: OperationalEquipment = {
+        id: Date.now().toString(),
+        name: name.trim(),
+        barcode: await generateUniqueBarcode(),
+        type,
+        quantity,
+        controlDate: controlDate ? new Date(controlDate).toISOString().split('T')[0] : undefined,
+        status,
+        notes: notes.trim() || undefined,
+      };
 
-    onCreateEquipment(newEquipment);
-    toast.success(`Matériel "${name}" créé avec succès`);
+      onCreateEquipment(newEquipment);
+      toast.success(`Matériel "${name}" créé avec succès`);
 
-    // Reset form
-    setName('');
-    setType('DSA');
-    setQuantity(1);
-    setControlDate('');
-    setStatus('ok');
-    setNotes('');
-    onOpenChange(false);
+      // Reset form
+      setName('');
+      setType('DSA');
+      setQuantity(1);
+      setControlDate('');
+      setStatus('ok');
+      setNotes('');
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Erreur lors de la création:', error);
+      toast.error('Une erreur est survenue lors de la création du matériel');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -145,12 +155,12 @@ export function CreateEquipmentDialog({ open, onOpenChange, onCreateEquipment }:
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Annuler
           </Button>
-          <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
             <Plus className="w-4 h-4 mr-2" />
-            Créer
+            {isLoading ? 'Création...' : 'Créer'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,7 +3,8 @@ import { OperationalEquipment } from '@/app/App';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { Plus, Wrench, Edit, Trash2, Barcode, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Input } from '@/app/components/ui/input';
+import { Plus, Wrench, Edit, Trash2, Barcode, CheckCircle, AlertTriangle, XCircle, Search, X } from 'lucide-react';
 import { CreateEquipmentDialog } from './CreateEquipmentDialog';
 import { EditEquipmentDialog } from './EditEquipmentDialog';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
@@ -32,6 +33,7 @@ export function OperationalEquipmentManager({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [barcodeDialogOpen, setBarcodeDialogOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<OperationalEquipment | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleEdit = (equip: OperationalEquipment) => {
     setSelectedEquipment(equip);
@@ -93,6 +95,16 @@ export function OperationalEquipmentManager({
     return labels[type];
   };
 
+  // Filtrer les équipements selon le terme de recherche
+  const filteredEquipment = equipment.filter((equip) => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      equip.name.toLowerCase().includes(searchLower) ||
+      equip.barcode.toLowerCase().includes(searchLower) ||
+      getTypeLabel(equip.type).toLowerCase().includes(searchLower)
+    );
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -110,6 +122,30 @@ export function OperationalEquipmentManager({
         )}
       </div>
 
+      {/* Barre de recherche */}
+      {equipment.length > 0 && (
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+            <Search className="w-4 h-4" />
+          </div>
+          <Input
+            type="text"
+            placeholder="Rechercher par nom, code-barres ou type..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-10"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       {equipment.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -123,9 +159,16 @@ export function OperationalEquipmentManager({
             )}
           </CardContent>
         </Card>
+      ) : filteredEquipment.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Search className="w-16 h-16 text-gray-300 mb-4" />
+            <p className="text-gray-500">Aucun matériel ne correspond à votre recherche</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {equipment.map((equip) => (
+          {filteredEquipment.map((equip) => (
             <Card key={equip.id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">

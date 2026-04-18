@@ -467,13 +467,31 @@ app.post('/api/operational-equipment', (req, res) => {
       return res.status(400).json({ error: 'qrCode or barcode is requis' });
     }
     const resolvedCategory = category ?? 'AUTRE';
+    const resolvedStatus = status || 'ok';
+    
     const stmt = db.prepare(`
       INSERT INTO operational_equipment (id, name, qr_code, type, category, status, control_date, peremption_date)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, name, resolvedQrCode, type, resolvedCategory, status, controlDate, expiryDate);
-    res.status(201).json({ success: true });
+    stmt.run(id, name, resolvedQrCode, type, resolvedCategory, resolvedStatus, controlDate || null, expiryDate || null);
+    
+    // Retourner l'équipement créé
+    const created = db.prepare('SELECT * FROM operational_equipment WHERE id = ?').get(id);
+    const formatted = {
+      id: created.id,
+      name: created.name,
+      qrCode: created.qr_code,
+      barcode: created.qr_code,
+      type: created.type,
+      category: created.category,
+      status: created.status,
+      controlDate: created.control_date,
+      lastControlDate: created.control_date,
+      expiryDate: created.peremption_date
+    };
+    res.status(201).json(formatted);
   } catch (error) {
+    console.error('Erreur création équipement:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -487,14 +505,32 @@ app.put('/api/operational-equipment/:id', (req, res) => {
       return res.status(400).json({ error: 'qrCode or barcode is requis' });
     }
     const resolvedCategory = category ?? 'AUTRE';
+    const resolvedStatus = status || 'ok';
+    
     const stmt = db.prepare(`
       UPDATE operational_equipment
       SET name = ?, qr_code = ?, type = ?, category = ?, status = ?, control_date = ?, peremption_date = ?
       WHERE id = ?
     `);
-    stmt.run(name, resolvedQrCode, type, resolvedCategory, status, controlDate, expiryDate, req.params.id);
-    res.json({ success: true });
+    stmt.run(name, resolvedQrCode, type, resolvedCategory, resolvedStatus, controlDate || null, expiryDate || null, req.params.id);
+    
+    // Retourner l'équipement mis à jour
+    const updated = db.prepare('SELECT * FROM operational_equipment WHERE id = ?').get(req.params.id);
+    const formatted = {
+      id: updated.id,
+      name: updated.name,
+      qrCode: updated.qr_code,
+      barcode: updated.qr_code,
+      type: updated.type,
+      category: updated.category,
+      status: updated.status,
+      controlDate: updated.control_date,
+      lastControlDate: updated.control_date,
+      expiryDate: updated.peremption_date
+    };
+    res.json(formatted);
   } catch (error) {
+    console.error('Erreur mise à jour équipement:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -77,23 +77,27 @@ export function OperationalMaterialPage() {
 
   const handleAddEquipment = async (equip: OperationalEquipment) => {
     try {
-      await operationalEquipmentApi.create(equip);
-      setEquipment(prev => [...prev, equip]);
+      const response = await operationalEquipmentApi.create(equip);
+      const createdEquip = response || equip;
+      setEquipment(prev => [...prev, createdEquip]);
       addLog('CREATE_EQUIPMENT', `Ajout du matériel "${equip.name}"`);
+      toast.success(`Matériel "${equip.name}" ajouté avec succès`);
     } catch (error) {
       console.error('Erreur lors de l\'ajout du matériel :', error);
-      toast.error('Impossible d\'ajouter le matériel');
+      toast.error('Impossible d\'ajouter le matériel. Vérifiez la console pour plus de détails.');
     }
   };
 
   const handleUpdateEquipment = async (updatedEquip: OperationalEquipment) => {
     try {
-      await operationalEquipmentApi.update(updatedEquip.id, updatedEquip);
-      setEquipment(prev => prev.map(e => (e.id === updatedEquip.id ? updatedEquip : e)));
+      const response = await operationalEquipmentApi.update(updatedEquip.id, updatedEquip);
+      const finalEquip = response || updatedEquip;
+      setEquipment(prev => prev.map(e => (e.id === updatedEquip.id ? finalEquip : e)));
       addLog('UPDATE_EQUIPMENT', `Modification du matériel "${updatedEquip.name}"`);
+      toast.success(`Matériel "${updatedEquip.name}" mis à jour avec succès`);
     } catch (error) {
       console.error('Erreur lors de la mise à jour du matériel :', error);
-      toast.error('Impossible de mettre à jour le matériel');
+      toast.error('Impossible de mettre à jour le matériel. Vérifiez la console pour plus de détails.');
     }
   };
 
