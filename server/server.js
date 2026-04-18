@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import rateLimit from 'express-rate-limit';
@@ -827,6 +828,18 @@ app.post('/api/bug-reports', (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Supprimer un rapport de bug
+app.delete('/api/bug-reports/:id', (req, res) => {
+  try {
+    const stmt = db.prepare('DELETE FROM bug_reports WHERE id = ?');
+    stmt.run(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Mettre à jour le statut d'un rapport de bug
 app.put('/api/bug-reports/:id', (req, res) => {
   try {
@@ -1158,9 +1171,26 @@ app.use(spaFallbackLimiter, (req, res) => {
 
 // Démarrer le serveur
 const HOST = process.env.NODE_ENV === 'production' ? 'localhost' : '0.0.0.0';
+const LOG_DIR = path.join(__dirname, 'logs');
+const SERVER_LOG_PATH = path.join(LOG_DIR, 'server.log');
+
+const ensureLogDirectory = () => {
+  if (!fs.existsSync(LOG_DIR)) {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+  }
+};
+
+const appendServerLog = (message) => {
+  ensureLogDirectory();
+  fs.appendFileSync(SERVER_LOG_PATH, `${new Date().toISOString()} ${message}\n`);
+};
+
 app.listen(PORT, HOST, () => {
-  console.log(`🚀 Serveur API démarré sur http://${HOST}:${PORT}`);
+  const startupMessage = `Serveur API démarré sur http://${HOST}:${PORT}`;
+  console.log(`🚀 ${startupMessage}`);
   console.log(`📊 Base de données : stockprotec.db`);
+  appendServerLog(startupMessage);
+
   if (process.env.NODE_ENV === 'production') {
     console.log(`🔒 Mode production : acces restreint a localhost`);
     console.log(`🌐 Utilisez un reverse proxy pour exposer l'application`);

@@ -143,6 +143,8 @@ export interface User {
   passwordResetDate?: string;
 }
 
+export type AuthUser = Omit<User, 'password'>;
+
 export interface LogEntry {
   id: string;
   timestamp: string;
@@ -180,12 +182,12 @@ export interface BugReport {
 
 export interface AuthState {
   isAuthenticated: boolean;
-  user: User | null;
+  user: AuthUser | null;
   lastActivity: string | null;
 }
 
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
-const SESSION_VALIDATION_INTERVAL_MS = 10 * 1000;
+const SESSION_VALIDATION_INTERVAL_MS = 5 * 60 * 1000;
 
 export default function App() {
   const [authState, setAuthState] = useState<AuthState>({

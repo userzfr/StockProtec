@@ -41,6 +41,7 @@ Thumbs.db
 *.sqlite3
 *.db
 data/
+server/logs/
 
 # Temporary files
 *.tmp

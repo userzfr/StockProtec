@@ -12,12 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/app/components/ui/dialog';
-import { User } from '@/app/App';
+import { AuthUser } from '@/app/App';
 import { toast } from 'sonner';
 import { usersApi } from '@/app/services/api';
 
 interface LoginPageProps {
-  onLogin: (user: User) => void;
+  onLogin: (user: AuthUser) => void;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
@@ -36,11 +36,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       // Utiliser l'API pour authentifier
       const user = await usersApi.login(username, password);
       
-      // Convertir la réponse au format User attendu par l'app
-      const appUser: User = {
+      // Convertir la réponse au format User attendu par l'app sans stocker le mot de passe
+      const appUser: AuthUser = {
         id: user.id,
         username: user.nom,
-        password: password,
         role: user.role,
         createdAt: user.date_creation,
       };

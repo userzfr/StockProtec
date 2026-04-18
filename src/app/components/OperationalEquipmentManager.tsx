@@ -107,7 +107,7 @@ export function OperationalEquipmentManager({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
         <div>
           <h2 className="font-bold">Matériel embarqué</h2>
           <p className="text-sm text-gray-500">
@@ -115,36 +115,36 @@ export function OperationalEquipmentManager({
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={() => setCreateDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => setCreateDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 w-full md:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             Ajouter du matériel
           </Button>
         )}
       </div>
 
-      {/* Barre de recherche */}
-      {equipment.length > 0 && (
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-            <Search className="w-4 h-4" />
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+        <div className="w-full md:w-96">
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <Search className="w-4 h-4" />
+            </div>
+            <Input
+              placeholder="Rechercher un matériel..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          <Input
-            type="text"
-            placeholder="Rechercher par nom, code-barres ou type..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-10"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
         </div>
-      )}
+      </div>
 
       {equipment.length === 0 ? (
         <Card>

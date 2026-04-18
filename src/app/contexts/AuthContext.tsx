@@ -1,8 +1,8 @@
 import { createContext, useContext, ReactNode } from 'react';
-import { User } from '@/app/App';
+import { AuthUser } from '@/app/App';
 
 interface AuthContextType {
-  currentUser: User;
+  currentUser: AuthUser;
   logout: () => void;
 }
 
@@ -18,7 +18,7 @@ export function useAuth() {
 
 interface AuthProviderProps {
   children: ReactNode;
-  user: User;
+  user: AuthUser;
   onLogout: () => void;
 }
 

@@ -12,7 +12,9 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
   try {
     const fullUrl = `${API_URL}${endpoint}`;
     
-    console.log(`📤 [API] ${options.method || 'GET'} ${endpoint}`);
+    if (import.meta.env.DEV) {
+      console.log(`📤 [API] ${options.method || 'GET'} ${endpoint}`);
+    }
     
     const response = await fetch(fullUrl, {
       ...options,
@@ -25,12 +27,16 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       const errorMessage = error.error || error.message || `HTTP ${response.status}`;
-      console.error(`❌ [API] Erreur ${response.status} sur ${endpoint}: ${errorMessage}`);
+      if (import.meta.env.DEV) {
+        console.error(`❌ [API] Erreur ${response.status} sur ${endpoint}: ${errorMessage}`);
+      }
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
-    console.log(`✅ [API] ${endpoint} OK`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ [API] ${endpoint} OK`);
+    }
     return data;
   } catch (error) {
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {

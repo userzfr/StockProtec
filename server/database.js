@@ -142,6 +142,46 @@ export function initializeDatabase() {
   `);
 
   // Table du matériel opérationnel individuel
+  const existingOperationalEquipment = db.prepare(`
+    SELECT sql FROM sqlite_master WHERE type='table' AND name='operational_equipment'
+  `).get();
+
+  if (existingOperationalEquipment && !existingOperationalEquipment.sql.includes("CHECK(status IN ('ok', 'defective', 'missing'))")) {
+    console.log('🔧 Migration de la table operational_equipment : mise à jour du CHECK(status)');
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS operational_equipment_new (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          qr_code TEXT UNIQUE NOT NULL,
+          type TEXT NOT NULL,
+          category TEXT NOT NULL,
+          status TEXT CHECK(status IN ('ok', 'defective', 'missing')),
+          control_date TEXT,
+          peremption_date TEXT,
+          date_creation TEXT DEFAULT (datetime('now'))
+        )
+      `);
+
+      db.exec(`
+        INSERT INTO operational_equipment_new (id, name, qr_code, type, category, status, control_date, peremption_date, date_creation)
+        SELECT id, name, qr_code, type, category,
+          CASE
+            WHEN status = 'warning' THEN 'defective'
+            WHEN status = 'critical' THEN 'missing'
+            ELSE status
+          END,
+          control_date,
+          peremption_date,
+          date_creation
+        FROM operational_equipment;
+      `);
+
+      db.exec('DROP TABLE operational_equipment;');
+      db.exec('ALTER TABLE operational_equipment_new RENAME TO operational_equipment;');
+    })();
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS operational_equipment (
       id TEXT PRIMARY KEY,
@@ -149,7 +189,7 @@ export function initializeDatabase() {
       qr_code TEXT UNIQUE NOT NULL,
       type TEXT NOT NULL,
       category TEXT NOT NULL,
-      status TEXT CHECK(status IN ('ok', 'warning', 'critical')),
+      status TEXT CHECK(status IN ('ok', 'defective', 'missing')),
       control_date TEXT,
       peremption_date TEXT,
       date_creation TEXT DEFAULT (datetime('now'))
