@@ -22,6 +22,7 @@ export default defineConfig({
 
   // Configuration du serveur de développement
   server: {
+    host: '0.0.0.0',
     port: 5173,
     proxy: {
       // Proxy pour l'API backend

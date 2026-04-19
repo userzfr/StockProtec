@@ -75,12 +75,16 @@ export function OperationalMaterialPage() {
     navigate(`/bag/${qrCode}`);
   };
 
+  const formatEquipmentDetails = (equip: OperationalEquipment) => {
+    return `Type: ${equip.type} • Quantité: ${equip.quantity} • Statut: ${equip.status ?? 'inconnu'} • Code-barres: ${equip.barcode} • Prochain contrôle: ${equip.controlDate ?? 'aucun'} • Notes: ${equip.notes ? `"${equip.notes}"` : 'aucun'}`;
+  };
+
   const handleAddEquipment = async (equip: OperationalEquipment) => {
     try {
       const response = await operationalEquipmentApi.create(equip);
       const createdEquip = response || equip;
       setEquipment(prev => [...prev, createdEquip]);
-      addLog('CREATE_EQUIPMENT', `Ajout du matériel "${equip.name}"`);
+      addLog('CREATE_EQUIPMENT', `Création du matériel "${equip.name}" (${formatEquipmentDetails(createdEquip)})`);
       toast.success(`Matériel "${equip.name}" ajouté avec succès`);
     } catch (error) {
       console.error('Erreur lors de l\'ajout du matériel :', error);
@@ -93,7 +97,32 @@ export function OperationalMaterialPage() {
       const response = await operationalEquipmentApi.update(updatedEquip.id, updatedEquip);
       const finalEquip = response || updatedEquip;
       setEquipment(prev => prev.map(e => (e.id === updatedEquip.id ? finalEquip : e)));
-      addLog('UPDATE_EQUIPMENT', `Modification du matériel "${updatedEquip.name}"`);
+
+      const previousEquip = equipment.find(e => e.id === updatedEquip.id);
+      const changes: string[] = [];
+      if (previousEquip) {
+        if (previousEquip.type !== updatedEquip.type) {
+          changes.push(`Type: ${previousEquip.type} → ${updatedEquip.type}`);
+        }
+        if (previousEquip.quantity !== updatedEquip.quantity) {
+          changes.push(`Quantité: ${previousEquip.quantity} → ${updatedEquip.quantity}`);
+        }
+        if (previousEquip.status !== updatedEquip.status) {
+          changes.push(`Statut: ${previousEquip.status ?? 'inconnu'} → ${updatedEquip.status ?? 'inconnu'}`);
+        }
+        if (previousEquip.controlDate !== updatedEquip.controlDate) {
+          changes.push(`Prochain contrôle: ${previousEquip.controlDate ?? 'aucun'} → ${updatedEquip.controlDate ?? 'aucun'}`);
+        }
+        if ((previousEquip.notes || '') !== (updatedEquip.notes || '')) {
+          changes.push(`Notes: "${previousEquip.notes ?? ''}" → "${updatedEquip.notes ?? ''}"`);
+        }
+      }
+
+      const details = previousEquip
+        ? `Modification du matériel "${updatedEquip.name}" (${changes.length ? changes.join(', ') : 'aucune modification détectée'})`
+        : `Modification du matériel "${updatedEquip.name}" (${formatEquipmentDetails(updatedEquip)})`;
+
+      addLog('UPDATE_EQUIPMENT', details);
       toast.success(`Matériel "${updatedEquip.name}" mis à jour avec succès`);
     } catch (error) {
       console.error('Erreur lors de la mise à jour du matériel :', error);
@@ -107,7 +136,7 @@ export function OperationalMaterialPage() {
       await operationalEquipmentApi.delete(equipId);
       setEquipment(prev => prev.filter(e => e.id !== equipId));
       if (equip) {
-        addLog('DELETE_EQUIPMENT', `Suppression du matériel "${equip.name}"`);
+        addLog('DELETE_EQUIPMENT', `Suppression du matériel "${equip.name}" (${formatEquipmentDetails(equip)})`);
       }
       toast.success('Matériel supprimé avec succès');
     } catch (error) {

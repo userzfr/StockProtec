@@ -573,6 +573,8 @@ app.get('/api/operational-equipment', (req, res) => {
       type: e.type,
       category: e.category,
       status: e.status,
+      quantity: typeof e.quantity === 'number' ? e.quantity : 1,
+      notes: e.notes || undefined,
       controlDate: e.control_date,
       lastControlDate: e.control_date,
       expiryDate: e.peremption_date
@@ -586,7 +588,7 @@ app.get('/api/operational-equipment', (req, res) => {
 // Créer un équipement opérationnel
 app.post('/api/operational-equipment', (req, res) => {
   try {
-    const { id, name, qrCode, barcode, type, category, status, controlDate, expiryDate } = req.body;
+    const { id, name, qrCode, barcode, type, category, status, quantity = 1, notes, controlDate, expiryDate } = req.body;
     const resolvedQrCode = qrCode ?? barcode;
     if (!resolvedQrCode) {
       return res.status(400).json({ error: 'qrCode or barcode is requis' });
@@ -595,10 +597,10 @@ app.post('/api/operational-equipment', (req, res) => {
     const resolvedStatus = status || 'ok';
     
     const stmt = db.prepare(`
-      INSERT INTO operational_equipment (id, name, qr_code, type, category, status, control_date, peremption_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO operational_equipment (id, name, qr_code, type, category, status, quantity, notes, control_date, peremption_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, name, resolvedQrCode, type, resolvedCategory, resolvedStatus, controlDate || null, expiryDate || null);
+    stmt.run(id, name, resolvedQrCode, type, resolvedCategory, resolvedStatus, quantity, notes || null, controlDate || null, expiryDate || null);
     
     // Retourner l'équipement créé
     const created = db.prepare('SELECT * FROM operational_equipment WHERE id = ?').get(id);
@@ -610,6 +612,8 @@ app.post('/api/operational-equipment', (req, res) => {
       type: created.type,
       category: created.category,
       status: created.status,
+      quantity: typeof created.quantity === 'number' ? created.quantity : 1,
+      notes: created.notes || undefined,
       controlDate: created.control_date,
       lastControlDate: created.control_date,
       expiryDate: created.peremption_date
@@ -624,7 +628,7 @@ app.post('/api/operational-equipment', (req, res) => {
 // Mettre à jour un équipement opérationnel
 app.put('/api/operational-equipment/:id', (req, res) => {
   try {
-    const { name, qrCode, barcode, type, category, status, controlDate, expiryDate } = req.body;
+    const { name, qrCode, barcode, type, category, status, quantity = 1, notes, controlDate, expiryDate } = req.body;
     const resolvedQrCode = qrCode ?? barcode;
     if (!resolvedQrCode) {
       return res.status(400).json({ error: 'qrCode or barcode is requis' });
@@ -634,10 +638,10 @@ app.put('/api/operational-equipment/:id', (req, res) => {
     
     const stmt = db.prepare(`
       UPDATE operational_equipment
-      SET name = ?, qr_code = ?, type = ?, category = ?, status = ?, control_date = ?, peremption_date = ?
+      SET name = ?, qr_code = ?, type = ?, category = ?, status = ?, quantity = ?, notes = ?, control_date = ?, peremption_date = ?
       WHERE id = ?
     `);
-    stmt.run(name, resolvedQrCode, type, resolvedCategory, resolvedStatus, controlDate || null, expiryDate || null, req.params.id);
+    stmt.run(name, resolvedQrCode, type, resolvedCategory, resolvedStatus, quantity, notes || null, controlDate || null, expiryDate || null, req.params.id);
     
     // Retourner l'équipement mis à jour
     const updated = db.prepare('SELECT * FROM operational_equipment WHERE id = ?').get(req.params.id);
@@ -649,6 +653,8 @@ app.put('/api/operational-equipment/:id', (req, res) => {
       type: updated.type,
       category: updated.category,
       status: updated.status,
+      quantity: typeof updated.quantity === 'number' ? updated.quantity : 1,
+      notes: updated.notes || undefined,
       controlDate: updated.control_date,
       lastControlDate: updated.control_date,
       expiryDate: updated.peremption_date

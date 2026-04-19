@@ -116,7 +116,7 @@ export function Root() {
       )}
 
       {/* Bug Report Button */}
-      <BugReportButton currentUser={currentUser} />
+      <BugReportButton currentUser={currentUser} onAddLog={addLog} />
     </div>
   );
 }

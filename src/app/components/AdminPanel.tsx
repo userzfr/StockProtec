@@ -61,11 +61,11 @@ export function AdminPanel({ isOpen, onClose, currentUser, onAddLog, onLogout }:
             </TabsContent>
 
             <TabsContent value="backups" className="mt-0 h-full">
-              <BackupManager />
+              <BackupManager currentUser={currentUser.username} onAddLog={onAddLog} />
             </TabsContent>
 
             <TabsContent value="bug-reports" className="mt-0 h-full">
-              <BugReportsManager currentUser={currentUser} />
+              <BugReportsManager currentUser={currentUser} onAddLog={onAddLog} />
             </TabsContent>
 
             <TabsContent value="logs" className="mt-0 h-full">
