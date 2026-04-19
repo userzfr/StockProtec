@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router';
 import { Header } from '@/app/components/Header';
 import { StockTable } from '@/app/components/StockTable';
 import { AddProductDialog } from '@/app/components/AddProductDialog';
@@ -261,6 +262,10 @@ export function Dashboard({ currentUser, onLogout, onAddLog, adminNotifications 
       <footer className="bg-white border-t border-slate-200 py-4 mt-8">
         <div className="container mx-auto px-4 text-center text-sm text-slate-600">
           Fait avec ❤️ par Mathieu.M
+          <span className="mx-2">|</span>
+          <Link to="/legal" className="text-blue-600 hover:text-blue-800 hover:underline">
+            Mentions légales
+          </Link>
         </div>
       </footer>
 

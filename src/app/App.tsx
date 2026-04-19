@@ -544,7 +544,16 @@ export default function App() {
       if (parsedAuth.isAuthenticated && parsedAuth.user && parsedAuth.lastActivity) {
         const elapsed = Date.now() - new Date(parsedAuth.lastActivity).getTime();
         if (elapsed < SESSION_TIMEOUT_MS) {
-          setAuthState(parsedAuth);
+          const sanitizedAuthState: AuthState = {
+            ...parsedAuth,
+            user: {
+              id: parsedAuth.user.id,
+              username: parsedAuth.user.username,
+              role: parsedAuth.user.role,
+              createdAt: parsedAuth.user.createdAt,
+            },
+          };
+          setAuthState(sanitizedAuthState);
         } else {
           localStorage.removeItem('authState');
         }
@@ -554,12 +563,20 @@ export default function App() {
     }
   }, []);
 
-  const handleLogin = async (user: User) => {
-    const newAuthState = {
+  const handleLogin = async (user: AuthUser) => {
+    const sanitizedUser: AuthUser = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      createdAt: user.createdAt,
+    };
+
+    const newAuthState: AuthState = {
       isAuthenticated: true,
-      user,
+      user: sanitizedUser,
       lastActivity: new Date().toISOString(),
     };
+
     setAuthState(newAuthState);
     localStorage.setItem('authState', JSON.stringify(newAuthState));
     
