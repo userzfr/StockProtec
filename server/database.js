@@ -157,6 +157,8 @@ export function initializeDatabase() {
           type TEXT NOT NULL,
           category TEXT NOT NULL,
           status TEXT CHECK(status IN ('ok', 'defective', 'missing')),
+          quantity INTEGER NOT NULL DEFAULT 1,
+          notes TEXT,
           control_date TEXT,
           peremption_date TEXT,
           date_creation TEXT DEFAULT (datetime('now'))
@@ -164,13 +166,15 @@ export function initializeDatabase() {
       `);
 
       db.exec(`
-        INSERT INTO operational_equipment_new (id, name, qr_code, type, category, status, control_date, peremption_date, date_creation)
+        INSERT INTO operational_equipment_new (id, name, qr_code, type, category, status, quantity, notes, control_date, peremption_date, date_creation)
         SELECT id, name, qr_code, type, category,
           CASE
             WHEN status = 'warning' THEN 'defective'
             WHEN status = 'critical' THEN 'missing'
             ELSE status
           END,
+          COALESCE(quantity, 1),
+          notes,
           control_date,
           peremption_date,
           date_creation
@@ -182,6 +186,16 @@ export function initializeDatabase() {
     })();
   }
 
+  const operationalEquipmentColumns = db.prepare(`PRAGMA table_info(operational_equipment)`).all().map(col => col.name);
+  if (existingOperationalEquipment && !operationalEquipmentColumns.includes('quantity')) {
+    console.log('🔧 Migration de la table operational_equipment : ajout de la colonne quantity');
+    db.exec('ALTER TABLE operational_equipment ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1');
+  }
+  if (existingOperationalEquipment && !operationalEquipmentColumns.includes('notes')) {
+    console.log('🔧 Migration de la table operational_equipment : ajout de la colonne notes');
+    db.exec('ALTER TABLE operational_equipment ADD COLUMN notes TEXT');
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS operational_equipment (
       id TEXT PRIMARY KEY,
@@ -190,6 +204,8 @@ export function initializeDatabase() {
       type TEXT NOT NULL,
       category TEXT NOT NULL,
       status TEXT CHECK(status IN ('ok', 'defective', 'missing')),
+      quantity INTEGER NOT NULL DEFAULT 1,
+      notes TEXT,
       control_date TEXT,
       peremption_date TEXT,
       date_creation TEXT DEFAULT (datetime('now'))

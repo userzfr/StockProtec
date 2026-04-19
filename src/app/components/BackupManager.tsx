@@ -21,7 +21,12 @@ interface BackupStats {
   newestBackup: string | null;
 }
 
-export function BackupManager() {
+interface BackupManagerProps {
+  currentUser: string;
+  onAddLog: (action: string, user: string, details: string) => Promise<void>;
+}
+
+export function BackupManager({ currentUser, onAddLog }: BackupManagerProps) {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [stats, setStats] = useState<BackupStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,6 +73,7 @@ export function BackupManager() {
       if (response.ok) {
         const result = await response.json();
         toast.success(`Sauvegarde créée: ${result.filename}`);
+        await onAddLog('CREATE_BACKUP', currentUser, `Création de la sauvegarde ${result.filename}${result.size ? ` (${formatFileSize(result.size)})` : ''}`);
         await loadBackups();
         await loadStats();
       } else {
@@ -87,6 +93,7 @@ export function BackupManager() {
       if (response.ok) {
         const result = await response.json();
         toast.success('Sauvegarde restaurée avec succès');
+        await onAddLog('RESTORE_BACKUP', currentUser, `Restauration de la sauvegarde ${backup.filename}${result && result.restoredFrom ? ` (source: ${result.restoredFrom})` : ''}`);
         setRestoreDialog({ open: false, backup: null });
         // Recharger la page pour refléter les changements
         window.location.reload();
@@ -105,6 +112,7 @@ export function BackupManager() {
       const response = await fetch(`/api/backup/${backup.filename}`, { method: 'DELETE' });
       if (response.ok) {
         toast.success('Sauvegarde supprimée');
+        await onAddLog('DELETE_BACKUP', currentUser, `Suppression de la sauvegarde ${backup.filename}`);
         setDeleteDialog({ open: false, backup: null });
         await loadBackups();
         await loadStats();

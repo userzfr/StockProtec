@@ -18,9 +18,10 @@ import { bugReportsApi } from '@/app/services/api';
 
 interface BugReportButtonProps {
   currentUser: { username: string };
+  onAddLog: (action: string, user: string, details: string) => Promise<void>;
 }
 
-export function BugReportButton({ currentUser }: BugReportButtonProps) {
+export function BugReportButton({ currentUser, onAddLog }: BugReportButtonProps) {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState('');
@@ -60,6 +61,11 @@ export function BugReportButton({ currentUser }: BugReportButtonProps) {
       };
 
       await bugReportsApi.create(newReport);
+      await onAddLog(
+        'CREATE_BUG_REPORT',
+        currentUser.username,
+        `Création d'un rapport de bug sur ${newReport.page} : ${newReport.description}`
+      );
 
       setDescription('');
       setIsOpen(false);

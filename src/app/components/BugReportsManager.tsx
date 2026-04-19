@@ -25,9 +25,10 @@ import { bugReportsApi } from '@/app/services/api';
 
 interface BugReportsManagerProps {
   currentUser: { username: string };
+  onAddLog: (action: string, user: string, details: string) => Promise<void>;
 }
 
-export function BugReportsManager({ currentUser }: BugReportsManagerProps) {
+export function BugReportsManager({ currentUser, onAddLog }: BugReportsManagerProps) {
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export function BugReportsManager({ currentUser }: BugReportsManagerProps) {
 
   const updateStatus = async (id: string, status: BugReport['status']) => {
     try {
+      const report = bugReports.find(r => r.id === id);
       await bugReportsApi.updateStatus(id, status);
       
       // Mettre à jour l'état local
@@ -64,6 +66,13 @@ export function BugReportsManager({ currentUser }: BugReportsManagerProps) {
       });
       
       setBugReports(reports);
+      if (report) {
+        await onAddLog(
+          'UPDATE_BUG_REPORT',
+          currentUser.username,
+          `Modification du rapport de bug #${report.id} sur la page ${report.page} : statut ${report.status} → ${status}. Description : ${report.description}`
+        );
+      }
       toast.success('Statut mis à jour');
     } catch (error) {
       console.error('Erreur lors de la mise à jour du statut:', error);
@@ -73,10 +82,18 @@ export function BugReportsManager({ currentUser }: BugReportsManagerProps) {
 
   const deleteReport = async (id: string) => {
     try {
+      const report = bugReports.find(r => r.id === id);
       await bugReportsApi.delete(id);
       
       const reports = bugReports.filter(r => r.id !== id);
       setBugReports(reports);
+      if (report) {
+        await onAddLog(
+          'DELETE_BUG_REPORT',
+          currentUser.username,
+          `Suppression du rapport de bug #${report.id} sur la page ${report.page} : ${report.description}`
+        );
+      }
       toast.success('Rapport supprimé');
     } catch (error) {
       console.error('Erreur lors de la suppression du rapport:', error);
