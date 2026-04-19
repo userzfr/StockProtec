@@ -1,5 +1,6 @@
 import db from './database.js';
 import { initializeDatabase } from './database.js';
+import { hashPassword } from './password.js';
 
 /**
  * Script pour remplir la base de données avec des données d'exemple
@@ -29,7 +30,7 @@ export function seedDatabase() {
     insertUser.run(
       'admin-001',
       'admin',
-      'admin123', // En production, ceci devrait être hashé
+      hashPassword('admin123'),
       'admin',
       new Date().toISOString()
     );
@@ -37,7 +38,7 @@ export function seedDatabase() {
     insertUser.run(
       'user-001',
       'user',
-      'user123',
+      hashPassword('user123'),
       'user',
       new Date().toISOString()
     );

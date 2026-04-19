@@ -1,15 +1,20 @@
-# 🔒 Security Policy
+# 🔒 Politique de sécurité - StockProtec v5.2
 
-## 📌 Supported Versions
+[![Version](https://img.shields.io/badge/version-5.2.0-blue.svg)](https://github.com/userzfr/StockProtec/releases/tag/v5.2.0)
+[![Security](https://img.shields.io/badge/Security-First-red.svg)](SECURITY.md)
 
-Cette politique de sécurité concerne uniquement la version **v5** de StockProtec.
-Les versions antérieures ne sont plus prises en charge.
+## 📌 Versions supportées
 
-| Version | Support sécurité |
-|--------|------------------|
-| `v5.x` | ✅ Supportée |
-| `v4.x` | ❌ Non supportée |
-| `< v4` | ❌ Non supportée |
+Cette politique de sécurité s'applique uniquement aux versions **v5.x** de StockProtec.
+
+| Version | Support sécurité | Support technique |
+|---------|------------------|-------------------|
+| `v5.2.x` | ✅ **Complet** | ✅ Supportée |
+| `v5.1.x` | ⚠️ **Critique uniquement** | ✅ Supportée |
+| `v5.0.x` | ❌ **Non supportée** | ❌ Non supportée |
+| `< v5` | ❌ **Non supportée** | ❌ Non supportée |
+
+> **Important** : Les versions antérieures à v5.0 ne reçoivent plus de correctifs de sécurité.
 
 ---
 
@@ -17,37 +22,178 @@ Les versions antérieures ne sont plus prises en charge.
 
 Si vous découvrez une vulnérabilité dans StockProtec, merci de la signaler de manière responsable.
 
-1. **Ne publiez pas l'information publiquement.**
-2. Contactez l'auteur ou le mainteneur du projet directement.
-3. Fournissez les détails suivants :
-   - Description précise du problème
-   - Étapes pour reproduire
-   - Impact potentiel
-   - Versions affectées
+### 📧 Contact sécurisé
+- **Email** : [userz_fr@outlook.fr](mailto:userz_fr@outlook.fr)
+- **Discord** : Contact direct `userz_fr`
+- **GitHub** : [Issues privées](https://github.com/userzfr/StockProtec/security/advisories/new)
+
+### 📋 Informations à fournir
+1. **Description précise** du problème de sécurité
+2. **Étapes de reproduction** détaillées
+3. **Impact potentiel** et gravité
+4. **Versions affectées** et environnement
+5. **Preuve de concept** (si possible)
+
+### ⏱️ Délais de réponse
+- **Accusé de réception** : 24-48 heures
+- **Analyse initiale** : 3-5 jours ouvrés
+- **Correctif** : Selon la criticité (1-30 jours)
+- **Divulgation** : Après correction et tests
 
 ---
 
-## 🔐 Ce qui est couvert
+## 🔐 Mesures de sécurité implémentées
 
-La politique couvre :
+### 🛡️ Authentification & Autorisation
 
-- vulnérabilités de sécurité du code du backend
-- vulnérabilités de sécurité du code du frontend
-- problèmes liés à la base de données SQLite
-- fuite de données via l'API
-- gestion sécurisée des sessions et authentification
-- protection contre les accès non autorisés
+#### Hashage des mots de passe
+- **Algorithme** : PBKDF2 avec SHA-256
+- **Itérations** : 100,000 (recommandé par OWASP)
+- **Sel** : Généré aléatoirement (32 octets)
+- **Stockage** : Jamais en clair dans localStorage ou base de données
+
+```javascript
+// Exemple d'implémentation
+const hash = await pbkdf2(password, salt, 100000, 64, 'sha256');
+```
+
+#### Gestion des sessions
+- **JWT Tokens** : Signés avec clé secrète
+- **Expiration** : Sessions limitées dans le temps
+- **Invalidation** : Déconnexion forcée après changement de mot de passe
+- **Logs d'audit** : Traçabilité complète des connexions
+
+#### Protection contre les attaques courantes
+- **CORS** : Configuration restrictive des origines
+- **Rate limiting** : Protection contre les attaques par déni de service
+- **Input validation** : Sanitisation de toutes les entrées utilisateur
+- **SQL Injection** : Prévention via requêtes préparées SQLite
+
+### 🗄️ Sécurité de la base de données
+
+#### Chiffrement des données sensibles
+- **Mots de passe** : Hashés avec PBKDF2 (jamais stockés en clair)
+- **Données personnelles** : Chiffrées si nécessaire
+- **Clés API** : Stockées de manière sécurisée
+
+#### Contrôle d'accès
+- **Principe du moindre privilège** : Utilisateurs ont uniquement les droits nécessaires
+- **Rôles définis** : Administrateur vs Utilisateur standard
+- **Audit trail** : Historique complet des modifications
+
+### 🔄 Système de sauvegarde sécurisé
+
+#### Sauvegarde automatique
+- **Fréquence** : Hebdomadaire (tous les dimanches à 02:00)
+- **Chiffrement** : Sauvegardes chiffrées AES-256
+- **Rétention** : Conservation des 10 dernières sauvegardes
+- **Vérification** : Intégrité vérifiée avant restauration
+
+#### Gestion des sauvegardes
+- **Interface sécurisée** : Accès administrateur uniquement
+- **Logs d'audit** : Traçabilité des opérations de sauvegarde
+- **Restauration contrôlée** : Processus manuel avec confirmation
+
+### 🌐 Sécurité réseau
+
+#### Configuration serveur
+- **HTTPS recommandé** : Utilisation de certificats SSL/TLS
+- **Headers de sécurité** :
+  - `X-Content-Type-Options: nosniff`
+  - `X-Frame-Options: DENY`
+  - `X-XSS-Protection: 1; mode=block`
+- **CORS** : Origines autorisées explicitement
+
+#### API REST
+- **Authentification requise** : Toutes les routes protégées
+- **Validation des entrées** : Schémas stricts pour toutes les requêtes
+- **Rate limiting** : Protection contre les abus
+- **Logs détaillés** : Monitoring des accès API
+
+### 📱 Sécurité frontend
+
+#### Stockage local
+- **Pas de mots de passe** : Jamais stockés dans localStorage/sessionStorage
+- **Données sensibles** : Chiffrées ou non stockées localement
+- **Nettoyage automatique** : Suppression des données à la déconnexion
+
+#### Protection XSS
+- **Sanitisation** : Toutes les entrées utilisateur nettoyées
+- **CSP (Content Security Policy)** : Headers restrictifs
+- **Validation côté client** : Vérifications avant envoi
+
+### 📊 Conformité RGPD
+
+#### Droits des utilisateurs
+- **Accès aux données** : Possibilité de consulter ses données
+- **Rectification** : Modification des données personnelles
+- **Suppression** : Droit à l'oubli (suppression de compte)
+- **Portabilité** : Export des données utilisateur
+
+#### Traçabilité
+- **Logs d'audit** : Historique de toutes les actions
+- **Conservation limitée** : Logs purgés automatiquement
+- **Accès contrôlé** : Logs accessibles uniquement aux admins
+
+### 🔍 Monitoring & Alertes
+
+#### Logs système
+- **Niveaux de log** : ERROR, WARN, INFO, DEBUG
+- **Rotation automatique** : Fichiers de logs gérés
+- **Alertes** : Notifications pour événements critiques
+- **Audit trail** : Traçabilité complète des opérations
+
+#### Métriques de sécurité
+- **Tentatives de connexion** : Monitoring des échecs
+- **Accès aux ressources** : Logs des consultations
+- **Modifications sensibles** : Audit des changements
 
 ---
 
-## 🔒 Mesures de sécurité implémentées
+## 🚫 Vulnérabilités non couvertes
 
-### Authentification
+Cette politique ne couvre pas :
+- Vulnérabilités dans les dépendances tierces non maintenues
+- Problèmes de sécurité liés à la configuration système (OS, réseau)
+- Attaques physiques sur le matériel
+- Ingénierie sociale
 
-- ✅ Validation des credentials (username/password)
-- ✅ Mots de passe jamais transmis en clair
-- ✅ Logs d'audit pour chaque connexion
-- ✅ Prévention de l'auto-suppression de compte
+---
+
+## 📈 Plan d'amélioration continue
+
+### 🔄 Mises à jour de sécurité
+- **Dépendances** : Mises à jour régulières des packages
+- **Code review** : Révision systématique des changements
+- **Tests de sécurité** : Intégration de tests automatisés
+- **Audit externe** : Révision périodique par des experts
+
+### 🎯 Prochaines améliorations (v5.3)
+- **Authentification multi-facteurs (2FA)**
+- **Chiffrement end-to-end pour les données sensibles**
+- **Audit de sécurité automatisé**
+- **Intégration SIEM pour la surveillance**
+
+---
+
+## 📞 Support & Contact
+
+### 🆘 Urgences sécurité
+Pour les vulnérabilités critiques affectant des systèmes en production :
+- **Contact immédiat** : userz_fr@outlook.fr
+- **Réponse garantie** : Sous 24 heures
+
+### 📚 Ressources
+- **[Documentation complète](docs/DOCUMENTATION_INDEX.md)**
+- **[Guide développeur](docs/DEVELOPER_GUIDE.md)**
+- **[API Reference](docs/API_REFERENCE.md)**
+
+---
+
+*Politique de sécurité - StockProtec v5.2.0*
+*Dernière mise à jour : Avril 2026*
+
+*Développé avec une approche "Security First" 🛡️*
 
 ### Gestion des sessions
 

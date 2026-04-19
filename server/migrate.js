@@ -1,4 +1,5 @@
 import db from './database.js';
+import { hashPassword, isHashedPassword } from './password.js';
 
 /**
  * Script de migration des données du localStorage vers SQLite
@@ -74,6 +75,7 @@ export function migrateFromLocalStorage(data) {
           const userName = user.name || user.nom || user.username || 'Utilisateur';
           const userEmail = user.email || `user-${Date.now()}@example.com`;
           const userPassword = user.password || 'password123';
+          const passwordToStore = isHashedPassword(userPassword) ? userPassword : hashPassword(userPassword);
           const userRole = user.role || 'user';
           const createdAt = user.createdAt || user.date_creation || new Date().toISOString();
           
@@ -82,7 +84,7 @@ export function migrateFromLocalStorage(data) {
               userId,
               userName,
               userEmail,
-              userPassword,
+              passwordToStore,
               userRole,
               createdAt,
               user.passwordResetRequested ? 1 : 0,

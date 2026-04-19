@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
-import { Users, FileText, Bug, Key } from 'lucide-react';
+import { Users, FileText, Bug, Key, Database } from 'lucide-react';
 import { UserManagement } from '@/app/components/UserManagement';
 import { LogsViewer } from '@/app/components/LogsViewer';
 import { BugReportsManager } from '@/app/components/BugReportsManager';
 import { PasswordResetManager } from '@/app/components/PasswordResetManager';
+import { BackupManager } from '@/app/components/BackupManager';
 import { User } from '@/app/App';
 
 interface AdminPanelProps {
@@ -27,7 +28,7 @@ export function AdminPanel({ isOpen, onClose, currentUser, onAddLog, onLogout }:
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="size-4" />
               Utilisateurs
@@ -35,6 +36,10 @@ export function AdminPanel({ isOpen, onClose, currentUser, onAddLog, onLogout }:
             <TabsTrigger value="password-reset" className="flex items-center gap-2">
               <Key className="size-4" />
               Réinit. MDP
+            </TabsTrigger>
+            <TabsTrigger value="backups" className="flex items-center gap-2">
+              <Database className="size-4" />
+              Sauvegardes
             </TabsTrigger>
             <TabsTrigger value="bug-reports" className="flex items-center gap-2">
               <Bug className="size-4" />
@@ -53,6 +58,10 @@ export function AdminPanel({ isOpen, onClose, currentUser, onAddLog, onLogout }:
 
             <TabsContent value="password-reset" className="mt-0 h-full">
               <PasswordResetManager onAddLog={onAddLog} />
+            </TabsContent>
+
+            <TabsContent value="backups" className="mt-0 h-full">
+              <BackupManager />
             </TabsContent>
 
             <TabsContent value="bug-reports" className="mt-0 h-full">

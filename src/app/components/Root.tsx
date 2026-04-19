@@ -1,10 +1,9 @@
-import { Outlet } from 'react-router';
+import { Link, Outlet, useNavigate, useLocation } from 'react-router';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Header } from '@/app/components/Header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Package, Pill, Settings } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router';
 import { AdminPanel } from '@/app/components/AdminPanel';
 import { BugReportButton } from '@/app/components/BugReportButton';
 import { bugReportsApi, usersApi, logsApi } from '@/app/services/api';
@@ -97,6 +96,10 @@ export function Root() {
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm text-gray-600">
             Fait avec ❤️ par Mathieu.M
+            <span className="mx-2">|</span>
+            <Link to="/legal" className="text-blue-600 hover:text-blue-800 hover:underline">
+              Mentions légales
+            </Link>
           </p>
         </div>
       </footer>

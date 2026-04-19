@@ -1,7 +1,7 @@
 {
   "name": "stockprotec",
   "description": "Application web de gestion de stock simple et efficace, conçue pour la Protection Civile.  \r Fonctionne en local avec enregistrement automatique des données sur le serveur dès qu'une modification est faite.",
-  "version": "5.0.0",
+  "version": "5.2.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -12,6 +12,8 @@
     "dev:all:pg": "concurrently \"npm run dev\" \"npm run server:pg\"",
     "seed": "node server/seed.js",
     "migrate:to-pg": "node server/migrate_to_pg.js",
+    "backup": "node -e \"import('./server/backup.js').then(m => m.createBackup())\"",
+    "backup:list": "node -e \"import('./server/backup.js').then(m => console.table(m.listBackups()))\"",
     "setup": "node scripts/setup.js",
     "prod": "node scripts/start.js",
     "prod:force": "FORCE_BUILD=true node scripts/start.js"

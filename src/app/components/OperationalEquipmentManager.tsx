@@ -129,10 +129,11 @@ export function OperationalEquipmentManager({
               <Search className="w-4 h-4" />
             </div>
             <Input
-              placeholder="Rechercher un matériel..."
+              placeholder="Rechercher par nom, type ou code-barres..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
+              autoComplete="off"
             />
             {searchTerm && (
               <button
@@ -143,6 +144,7 @@ export function OperationalEquipmentManager({
               </button>
             )}
           </div>
+          <p className="text-xs text-gray-500 mt-2">Tapez un code-barres, un nom ou un type d'équipement pour filtrer les résultats.</p>
         </div>
       </div>
 

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import rateLimit from 'express-rate-limit';
 import db, { initializeDatabase } from './database.js';
 import { seedDatabase } from './seed.js';
+import { hashPassword, verifyPassword, isHashedPassword } from './password.js';
+import { createBackup, listBackups, restoreBackup, deleteBackup, getBackupStats } from './backup.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -27,6 +29,41 @@ app.use(express.json());
 // Initialiser la base de données au démarrage
 initializeDatabase();
 seedDatabase();
+
+// Initialiser le système de sauvegarde automatique
+console.log('🔄 Initialisation du système de sauvegarde automatique...');
+
+// Sauvegarde hebdomadaire (tous les dimanches à 02h00)
+const WEEKLY_BACKUP_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 jours en millisecondes
+
+function scheduleWeeklyBackup() {
+  const now = new Date();
+  const nextSunday = new Date(now);
+  nextSunday.setDate(now.getDate() + (7 - now.getDay())); // Prochain dimanche
+  nextSunday.setHours(2, 0, 0, 0); // 02h00
+
+  // Si on est déjà passé le dimanche 02h00 cette semaine, programmer pour la semaine prochaine
+  if (now >= nextSunday) {
+    nextSunday.setDate(nextSunday.getDate() + 7);
+  }
+
+  const timeUntilNextBackup = nextSunday.getTime() - now.getTime();
+
+  console.log(`📅 Prochaine sauvegarde automatique: ${nextSunday.toLocaleString('fr-FR')}`);
+
+  setTimeout(() => {
+    console.log('🔄 Début de la sauvegarde hebdomadaire automatique...');
+    createBackup();
+
+    // Programmer la prochaine sauvegarde
+    setInterval(() => {
+      console.log('🔄 Début de la sauvegarde hebdomadaire automatique...');
+      createBackup();
+    }, WEEKLY_BACKUP_INTERVAL);
+  }, timeUntilNextBackup);
+}
+
+scheduleWeeklyBackup();
 
 // ===============================
 // ROUTES UTILISATEURS
@@ -69,11 +106,18 @@ app.post('/api/login', (req, res) => {
     if (!user) {
       return res.status(401).json({ error: 'Identifiants incorrects' });
     }
-    
-    if (user.password !== password) {
+
+    const storedPassword = user.password;
+    const passwordIsValid = verifyPassword(password, storedPassword);
+    if (!passwordIsValid) {
       return res.status(401).json({ error: 'Identifiants incorrects' });
     }
-    
+
+    if (!isHashedPassword(storedPassword)) {
+      const hashed = hashPassword(password);
+      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, user.id);
+    }
+
     // Retourner l'utilisateur sans le mot de passe
     const { password: _, ...userWithoutPassword } = user;
     res.json(userWithoutPassword);
@@ -86,11 +130,16 @@ app.post('/api/login', (req, res) => {
 app.post('/api/users', (req, res) => {
   try {
     const { id, nom, password, role } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Le mot de passe est requis' });
+    }
+
+    const hashedPassword = hashPassword(password);
     const stmt = db.prepare(`
       INSERT INTO users (id, nom, password, role, password_reset_requested, password_reset_date)
       VALUES (?, ?, ?, ?, 0, NULL)
     `);
-    stmt.run(id, nom, password, role);
+    stmt.run(id, nom, hashedPassword, role);
     res.status(201).json({ id, nom, role });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -112,12 +161,13 @@ app.put('/api/users/:id', (req, res) => {
       `);
       stmt.run(nom, role, passwordResetFlag, resetDateValue, req.params.id);
     } else {
+      const hashedPassword = hashPassword(password);
       const stmt = db.prepare(`
         UPDATE users
         SET nom = ?, password = ?, role = ?, password_reset_requested = ?, password_reset_date = ?
         WHERE id = ?
       `);
-      stmt.run(nom, password, role, passwordResetFlag, resetDateValue, req.params.id);
+      stmt.run(nom, hashedPassword, role, passwordResetFlag, resetDateValue, req.params.id);
     }
 
     res.json({ success: true });
@@ -150,6 +200,80 @@ app.delete('/api/users/:id', (req, res) => {
     })();
 
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===============================
+// ROUTES SAUVEGARDES
+// ===============================
+
+// Créer une sauvegarde manuelle
+app.post('/api/backup', (req, res) => {
+  try {
+    const backupFilename = createBackup();
+    if (backupFilename) {
+      res.json({
+        success: true,
+        message: 'Sauvegarde créée avec succès',
+        filename: backupFilename
+      });
+    } else {
+      res.status(500).json({ error: 'Échec de la création de la sauvegarde' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Lister les sauvegardes
+app.get('/api/backups', (req, res) => {
+  try {
+    const backups = listBackups();
+    res.json(backups);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Restaurer une sauvegarde
+app.post('/api/backup/restore/:filename', (req, res) => {
+  try {
+    const result = restoreBackup(req.params.filename);
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Sauvegarde restaurée avec succès',
+        safetyBackup: result.safetyBackup
+      });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Supprimer une sauvegarde
+app.delete('/api/backup/:filename', (req, res) => {
+  try {
+    const result = deleteBackup(req.params.filename);
+    if (result.success) {
+      res.json({ success: true, message: 'Sauvegarde supprimée avec succès' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Statistiques des sauvegardes
+app.get('/api/backup/stats', (req, res) => {
+  try {
+    const stats = getBackupStats();
+    res.json(stats);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
