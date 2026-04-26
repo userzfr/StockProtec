@@ -95,7 +95,7 @@ export function Root() {
       <footer className="bg-gray-100 border-t border-gray-200 py-6 mt-12">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm text-gray-600">
-            Fait avec ❤️ par Mathieu.M
+            Fait avec ❤️ par Mathieu.M CACA
             <span className="mx-2">|</span>
             <Link to="/legal" className="text-blue-600 hover:text-blue-800 hover:underline">
               Mentions légales
