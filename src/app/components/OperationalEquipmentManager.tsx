@@ -58,7 +58,12 @@ export function OperationalEquipmentManager({
     }
   };
 
-  const getStatusIcon = (status?: 'ok' | 'defective' | 'missing') => {
+  const getStatusIcon = (status?: 'ok' | 'defective' | 'missing', nextControlDate?: string) => {
+    // Si la date du prochain contrôle est dépassée, afficher une alerte
+    if (nextControlDate && new Date(nextControlDate) < new Date() && status === 'ok') {
+      return <AlertTriangle className="w-5 h-5 text-red-500" />;
+    }
+    
     switch (status) {
       case 'ok':
         return <CheckCircle className="w-5 h-5 text-green-500" />;
@@ -71,7 +76,12 @@ export function OperationalEquipmentManager({
     }
   };
 
-  const getStatusBadge = (status?: 'ok' | 'defective' | 'missing') => {
+  const getStatusBadge = (status?: 'ok' | 'defective' | 'missing', nextControlDate?: string) => {
+    // Si la date du prochain contrôle est dépassée, afficher un statut d'alerte
+    if (nextControlDate && new Date(nextControlDate) < new Date()) {
+      return <Badge className="bg-red-600">Contrôle en retard</Badge>;
+    }
+    
     switch (status) {
       case 'ok':
         return <Badge className="bg-green-500">Opérationnel</Badge>;
@@ -175,10 +185,10 @@ export function OperationalEquipmentManager({
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
-                    {getStatusIcon(equip.status)}
+                    {getStatusIcon(equip.status, equip.controlDate)}
                     <CardTitle className="text-lg">{equip.name}</CardTitle>
                   </div>
-                  {getStatusBadge(equip.status)}
+                  {getStatusBadge(equip.status, equip.controlDate)}
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">

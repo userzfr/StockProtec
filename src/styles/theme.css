@@ -179,3 +179,190 @@
     line-height: 1.5;
   }
 }
+
+/* Améliorations responsive et corrections affichage */
+@layer components {
+  /* Responsive fonts pour mobile et tablette */
+  @media (max-width: 768px) {
+    body {
+      font-size: 15px;
+    }
+
+    h1 {
+      font-size: 24px;
+    }
+
+    h2 {
+      font-size: 20px;
+    }
+
+    h3 {
+      font-size: 18px;
+    }
+
+    /* Correction des bullets trop grands sur mobile */
+    ul, ol {
+      padding-left: 1.25rem;
+    }
+
+    ul li::marker {
+      font-size: 1rem;
+    }
+
+    ol li::marker {
+      font-size: 1rem;
+    }
+
+    /* Correction du texte décalé sur iPhone */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    textarea,
+    select {
+      font-size: 16px;
+      -webkit-user-select: text;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    /* Correction défaut zoom Safari iPhone */
+    input[type="text"]:invalid {
+      -webkit-box-shadow: none;
+      box-shadow: none;
+    }
+  }
+
+  /* iPhone 15 et petits écrans détection */
+  @media (max-width: 430px) {
+    /* Meilleur espacement pour petits écrans */
+    .space-y-2 {
+      @apply space-y-1.5;
+    }
+
+    .space-y-4 {
+      @apply space-y-3;
+    }
+
+    /* Polices plus lisibles sur petits écrans */
+    p, span, label {
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* Correction des dialogues sur petits écrans */
+    [role="dialog"] {
+      max-width: 95vw !important;
+      margin: auto;
+    }
+
+    /* Input meilleur sur mobile */
+    input, textarea, select {
+      min-height: 44px;
+      padding: 12px;
+      font-size: 16px;
+    }
+
+    /* Buttons meilleur sur mobile */
+    button {
+      min-height: 44px;
+      padding: 12px 16px;
+      font-size: 16px;
+    }
+
+    /* Tables meillure lisibilité */
+    table {
+      font-size: 14px;
+    }
+
+    /* Correction padding du contenu */
+    .px-4 {
+      @apply px-3;
+    }
+
+    .px-6 {
+      @apply px-4;
+    }
+  }
+
+  /* Tablets (iPad) */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .max-w-6xl {
+      max-width: 90vw;
+    }
+
+    table {
+      font-size: 16px;
+    }
+  }
+
+  /* Desktop - polices plus grandes pour meilleure lisibilité */
+  @media (min-width: 1025px) {
+    body {
+      font-size: 17px;
+    }
+
+    h1 {
+      font-size: 32px;
+    }
+
+    h2 {
+      font-size: 28px;
+    }
+
+    h3 {
+      font-size: 24px;
+    }
+
+    table {
+      font-size: 16px;
+    }
+
+    .text-sm {
+      font-size: 15px;
+    }
+
+    .text-base {
+      font-size: 17px;
+    }
+
+    .text-lg {
+      font-size: 19px;
+    }
+  }
+
+  /* Correction problème scroll horizontal sur mobile */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Meilleure visibilité du texte sur tous les appareils */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  /* Amélioration du focus pour accessibilité */
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* Safe areas pour notch sur iPhone */
+  @supports (padding: max(0px)) {
+    body {
+      padding-left: max(0px, env(safe-area-inset-left));
+      padding-right: max(0px, env(safe-area-inset-right));
+      padding-top: max(0px, env(safe-area-inset-top));
+      padding-bottom: max(0px, env(safe-area-inset-bottom));
+    }
+  }
+}

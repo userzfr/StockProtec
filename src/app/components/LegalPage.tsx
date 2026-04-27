@@ -15,18 +15,15 @@ export function LegalPage() {
           <h2 className="text-xl font-semibold text-slate-900 mb-2">Éditeur</h2>
           <p>Protection Civile de la Loire - Antenne de Saint-Étienne</p>
           <p>Développé par Mathieu MERLE (Chef de projet et développeur principal)</p>
-          <p>Contact : [Adresse de l'antenne à renseigner]</p>
-          <p>Téléphone : [Numéro de téléphone à renseigner]</p>
-          <p>Email : [Adresse email à renseigner]</p>
+          <p>Contact : 11 Rue René Cassin 42100 SAINT-ÉTIENNE</p>
+          <p>Email : userz_fr@outlook.fr</p>
         </div>
 
         <div>
           <h2 className="text-xl font-semibold text-slate-900 mb-2">Hébergement</h2>
-          <p>Nom de l'hébergeur : [Nom de l'hébergeur à renseigner]</p>
-          <p>Adresse : [Adresse de l'hébergeur à renseigner]</p>
-          <p>Téléphone : [Téléphone de l'hébergeur à renseigner]</p>
-          <p>Email : [Email de l'hébergeur à renseigner]</p>
-          <p>Site web : [Site web de l'hébergeur à renseigner]</p>
+          <p>Nom de l'hébergeur : IHC NETWORK</p>
+          <p>Adresse : Yvetot</p>
+          <p>Email : userz_fr@outlook.fr</p>
         </div>
 
         <div>

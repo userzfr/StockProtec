@@ -6,7 +6,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Textarea } from '@/app/components/ui/textarea';
-import { Save } from 'lucide-react';
+import { Save, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EditEquipmentDialogProps {
@@ -20,7 +20,7 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
   const [name, setName] = useState(equipment.name);
   const [type, setType] = useState<OperationalEquipment['type']>(equipment.type);
   const [quantity, setQuantity] = useState(equipment.quantity);
-  const [controlDate, setControlDate] = useState(equipment.controlDate ? equipment.controlDate.split('T')[0] : '');
+  const [nextControlDate, setNextControlDate] = useState(equipment.controlDate ? equipment.controlDate.split('T')[0] : '');
   const [status, setStatus] = useState<OperationalEquipment['status']>(equipment.status || 'ok');
   const [notes, setNotes] = useState(equipment.notes || '');
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +29,7 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
     setName(equipment.name);
     setType(equipment.type);
     setQuantity(equipment.quantity);
-    setControlDate(equipment.controlDate ? equipment.controlDate.split('T')[0] : '');
+    setNextControlDate(equipment.controlDate ? equipment.controlDate.split('T')[0] : '');
     setStatus(equipment.status || 'ok');
     setNotes(equipment.notes || '');
   }, [equipment]);
@@ -48,15 +48,16 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
     try {
       setIsLoading(true);
       
+      // Mettre à jour SANS changer lastControlDate (sauf si user le demande explicitement)
       const updatedEquipment: OperationalEquipment = {
         ...equipment,
         name: name.trim(),
         type,
         quantity,
-        controlDate: controlDate ? new Date(controlDate).toISOString().split('T')[0] : undefined,
+        controlDate: nextControlDate ? new Date(nextControlDate).toISOString().split('T')[0] : undefined,
         status,
         notes: notes.trim() || undefined,
-        lastControlDate: new Date().toISOString(),
+        // Ne pas changer lastControlDate sauf si on effectue un contrôle
       };
 
       onUpdateEquipment(updatedEquipment);
@@ -65,6 +66,43 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
     } catch (error) {
       console.error('Erreur lors de la mise à jour:', error);
       toast.error('Une erreur est survenue lors de la mise à jour');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMarkAsControlled = async () => {
+    if (!name.trim()) {
+      toast.error('Veuillez saisir un nom de matériel');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Enregistrer le contrôle d'aujourd'hui ET réinitialiser la date du prochain contrôle
+      const today = new Date().toISOString().split('T')[0];
+      const nextMonth = new Date();
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      const nextControlDateDefault = nextMonth.toISOString().split('T')[0];
+
+      const updatedEquipment: OperationalEquipment = {
+        ...equipment,
+        name: name.trim(),
+        type,
+        quantity,
+        status,
+        notes: notes.trim() || undefined,
+        lastControlDate: new Date().toISOString(),
+        controlDate: nextControlDate || nextControlDateDefault,
+      };
+
+      onUpdateEquipment(updatedEquipment);
+      toast.success(`Contrôle effectué avec succès pour "${name}"`);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement du contrôle:', error);
+      toast.error('Une erreur est survenue lors de l\'enregistrement du contrôle');
     } finally {
       setIsLoading(false);
     }
@@ -134,13 +172,14 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="controlDate">Date du prochain contrôle (optionnel)</Label>
+            <Label htmlFor="nextControlDate">Date du prochain contrôle (optionnel)</Label>
             <Input
-              id="controlDate"
+              id="nextControlDate"
               type="date"
-              value={controlDate}
-              onChange={(e) => setControlDate(e.target.value)}
+              value={nextControlDate}
+              onChange={(e) => setNextControlDate(e.target.value)}
             />
+            <p className="text-xs text-gray-500">Date planifiée du prochain contrôle de maintenance</p>
           </div>
 
           <div className="space-y-2">
@@ -154,16 +193,29 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
             />
           </div>
 
-          <div className="bg-gray-50 p-3 rounded">
-            <p className="text-sm text-gray-600">
+          <div className="bg-blue-50 p-4 rounded border border-blue-200">
+            <p className="text-sm text-gray-700 mb-2">
               <strong>Code-barres :</strong> {equipment.barcode}
             </p>
+            {equipment.lastControlDate && (
+              <p className="text-sm text-gray-600">
+                <strong>Dernier contrôle :</strong> {new Date(equipment.lastControlDate).toLocaleDateString('fr-FR')}
+              </p>
+            )}
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Annuler
+          </Button>
+          <Button 
+            onClick={handleMarkAsControlled} 
+            className="bg-green-600 hover:bg-green-700" 
+            disabled={isLoading}
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Contrôle effectué
           </Button>
           <Button onClick={handleUpdate} className="bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
             <Save className="w-4 h-4 mr-2" />

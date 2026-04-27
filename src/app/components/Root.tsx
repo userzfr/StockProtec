@@ -16,11 +16,28 @@ export function Root() {
   const location = useLocation();
 
   useEffect(() => {
-    // Vérifier les notifications admin
+    // Vérifier les notifications admin au chargement
     if (currentUser?.role === 'admin') {
       checkAdminNotifications();
     }
   }, [currentUser]);
+
+  // Polling pour les notifications en temps quasi-réel
+  useEffect(() => {
+    if (currentUser?.role !== 'admin') return;
+
+    // Vérifier les notifications immédiatement quand le panneau admin s'ouvre
+    if (isAdminOpen) {
+      checkAdminNotifications();
+    }
+
+    // Puis configurer le polling toutes les 10 secondes
+    const interval = setInterval(() => {
+      checkAdminNotifications();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [currentUser, isAdminOpen]);
 
   const checkAdminNotifications = async () => {
     try {
