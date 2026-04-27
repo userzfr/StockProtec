@@ -80,7 +80,8 @@
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",
     "vaul": "1.1.2",
-    "express-rate-limit": "^8.3.2"
+    "express-rate-limit": "^8.3.2",
+    "ua-parser-js": "^1.0.38"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",

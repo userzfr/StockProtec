@@ -195,6 +195,14 @@ export function initializeDatabase() {
     console.log('🔧 Migration de la table operational_equipment : ajout de la colonne notes');
     db.exec('ALTER TABLE operational_equipment ADD COLUMN notes TEXT');
   }
+  if (existingOperationalEquipment && !operationalEquipmentColumns.includes('next_control_date')) {
+    console.log('🔧 Migration de la table operational_equipment : ajout de la colonne next_control_date');
+    db.exec('ALTER TABLE operational_equipment ADD COLUMN next_control_date TEXT');
+  }
+  if (existingOperationalEquipment && !operationalEquipmentColumns.includes('last_control_date')) {
+    console.log('🔧 Migration de la table operational_equipment : ajout de la colonne last_control_date');
+    db.exec('ALTER TABLE operational_equipment ADD COLUMN last_control_date TEXT');
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS operational_equipment (
@@ -207,6 +215,8 @@ export function initializeDatabase() {
       quantity INTEGER NOT NULL DEFAULT 1,
       notes TEXT,
       control_date TEXT,
+      last_control_date TEXT,
+      next_control_date TEXT,
       peremption_date TEXT,
       date_creation TEXT DEFAULT (datetime('now'))
     )
@@ -349,6 +359,50 @@ export function initializeDatabase() {
       date_creation TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  // Table des sessions utilisateurs (pour tracer IP, navigateur, etc.)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      browser TEXT,
+      os TEXT,
+      device_type TEXT,
+      login_time TEXT DEFAULT (datetime('now')),
+      last_activity_time TEXT DEFAULT (datetime('now')),
+      logout_time TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Ajouter des colonnes si elles n'existent pas
+  try {
+    db.exec('ALTER TABLE user_sessions ADD COLUMN browser TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE user_sessions ADD COLUMN os TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE user_sessions ADD COLUMN device_type TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE user_sessions ADD COLUMN last_activity_time TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE user_sessions ADD COLUMN logout_time TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
 
   console.log('✅ Base de données initialisée avec succès');
 }

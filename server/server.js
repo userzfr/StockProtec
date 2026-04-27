@@ -8,12 +8,38 @@ import db, { initializeDatabase } from './database.js';
 import { seedDatabase } from './seed.js';
 import { hashPassword, verifyPassword, isHashedPassword } from './password.js';
 import { createBackup, listBackups, restoreBackup, deleteBackup, getBackupStats } from './backup.js';
+import UAParser from 'ua-parser-js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Middleware pour extraire l'IP du client
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  return (forwarded ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || 'unknown';
+}
+
+// Fonction pour parser les informations du user-agent
+function parseUserAgent(userAgentString) {
+  try {
+    const parser = new UAParser(userAgentString);
+    const result = parser.getResult();
+    return {
+      browser: `${result.browser.name || 'Unknown'} ${result.browser.version || ''}`.trim(),
+      os: `${result.os.name || 'Unknown'} ${result.os.version || ''}`.trim(),
+      device_type: result.device.type || 'desktop'
+    };
+  } catch (error) {
+    return {
+      browser: 'Unknown',
+      os: 'Unknown',
+      device_type: 'unknown'
+    };
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -118,6 +144,17 @@ app.post('/api/login', (req, res) => {
       db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, user.id);
     }
 
+    // Enregistrer la session utilisateur avec IP et user-agent
+    const ipAddress = getClientIp(req);
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const uaInfo = parseUserAgent(userAgent);
+    const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    
+    db.prepare(`
+      INSERT INTO user_sessions (id, user_id, ip_address, user_agent, browser, os, device_type, login_time, last_activity_time)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `).run(sessionId, user.id, ipAddress, userAgent, uaInfo.browser, uaInfo.os, uaInfo.device_type);
+
     // Retourner l'utilisateur sans le mot de passe
     const { password: _, ...userWithoutPassword } = user;
     res.json(userWithoutPassword);
@@ -199,6 +236,86 @@ app.delete('/api/users/:id', (req, res) => {
       db.prepare('DELETE FROM users WHERE id = ?').run(userId);
     })();
 
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===============================
+// ROUTES SESSIONS UTILISATEURS
+// ===============================
+
+// Récupérer toutes les sessions d'un utilisateur
+app.get('/api/users/:userId/sessions', (req, res) => {
+  try {
+    const sessions = db.prepare(`
+      SELECT id, user_id, ip_address, user_agent, browser, os, device_type, login_time, last_activity_time, logout_time
+      FROM user_sessions
+      WHERE user_id = ?
+      ORDER BY login_time DESC
+      LIMIT 50
+    `).all(req.params.userId);
+    res.json(sessions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Récupérer les dernières connexions (toutes les sessions récentes)
+app.get('/api/sessions/recent', (req, res) => {
+  try {
+    const limit = req.query.limit || 100;
+    const sessions = db.prepare(`
+      SELECT us.*, u.nom as username
+      FROM user_sessions us
+      JOIN users u ON us.user_id = u.id
+      ORDER BY us.login_time DESC
+      LIMIT ?
+    `).all(limit);
+    res.json(sessions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Récupérer les sessions actives d'un utilisateur (sans logout_time)
+app.get('/api/users/:userId/active-sessions', (req, res) => {
+  try {
+    const sessions = db.prepare(`
+      SELECT id, user_id, ip_address, user_agent, browser, os, device_type, login_time, last_activity_time
+      FROM user_sessions
+      WHERE user_id = ? AND logout_time IS NULL
+      ORDER BY login_time DESC
+    `).all(req.params.userId);
+    res.json(sessions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mettre à jour la dernière activité d'une session
+app.put('/api/sessions/:sessionId/activity', (req, res) => {
+  try {
+    db.prepare(`
+      UPDATE user_sessions
+      SET last_activity_time = datetime('now')
+      WHERE id = ?
+    `).run(req.params.sessionId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Enregistrer le logout
+app.put('/api/sessions/:sessionId/logout', (req, res) => {
+  try {
+    db.prepare(`
+      UPDATE user_sessions
+      SET logout_time = datetime('now')
+      WHERE id = ?
+    `).run(req.params.sessionId);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

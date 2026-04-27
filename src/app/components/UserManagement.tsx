@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, UserPlus, Shield } from 'lucide-react';
+import { Plus, Trash2, UserPlus, Shield, Eye } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -7,9 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/app/components/ui/table';
 import { Badge } from '@/app/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { User } from '@/app/App';
 import { toast } from 'sonner';
 import { usersApi } from '@/app/services/api';
+import { UserLogsViewer } from '@/app/components/UserLogsViewer';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/app/components/ui/alert-dialog';
 
 interface UserManagementProps {
@@ -26,6 +28,7 @@ export function UserManagement({ currentUser, onAddLog, onLogout }: UserManageme
     role: 'user' as 'admin' | 'user'
   });
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [selectedUserIdForLogs, setSelectedUserIdForLogs] = useState<string | null>(null);
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -244,16 +247,27 @@ export function UserManagement({ currentUser, onAddLog, onLogout }: UserManageme
                         {formatDate(user.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeletingUserId(user.id)}
-                          disabled={user.id === currentUser.id}
-                          title={user.id === currentUser.id ? 'Vous ne pouvez pas supprimer votre propre compte' : 'Supprimer cet utilisateur'}
-                          className="hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedUserIdForLogs(user.id)}
+                            title="Afficher l'historique des connexions"
+                            className="hover:bg-blue-50 hover:text-blue-700"
+                          >
+                            <Eye className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeletingUserId(user.id)}
+                            disabled={user.id === currentUser.id}
+                            title={user.id === currentUser.id ? 'Vous ne pouvez pas supprimer votre propre compte' : 'Supprimer cet utilisateur'}
+                            className="hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -285,6 +299,24 @@ export function UserManagement({ currentUser, onAddLog, onLogout }: UserManageme
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* User Logs Dialog */}
+      <Dialog open={!!selectedUserIdForLogs} onOpenChange={(open) => {
+        if (!open) setSelectedUserIdForLogs(null);
+      }}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              Historique des connexions - {users.find(u => u.id === selectedUserIdForLogs)?.username}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {selectedUserIdForLogs && (
+              <UserLogsViewer userId={selectedUserIdForLogs} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

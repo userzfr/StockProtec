@@ -22,36 +22,38 @@ export function AdminPanel({ isOpen, onClose, currentUser, onAddLog, onLogout }:
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col" aria-describedby={undefined}>
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Panneau d'Administration</DialogTitle>
+      <DialogContent className="w-screen h-screen max-w-none max-h-none p-0 gap-0 border-0 rounded-0" aria-describedby={undefined}>
+        <DialogHeader className="px-8 py-6 border-b bg-white">
+          <DialogTitle className="text-4xl font-bold text-gray-900">Panneau d'Administration</DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="size-4" />
-              Utilisateurs
-            </TabsTrigger>
-            <TabsTrigger value="password-reset" className="flex items-center gap-2">
-              <Key className="size-4" />
-              Réinit. MDP
-            </TabsTrigger>
-            <TabsTrigger value="backups" className="flex items-center gap-2">
-              <Database className="size-4" />
-              Sauvegardes
-            </TabsTrigger>
-            <TabsTrigger value="bug-reports" className="flex items-center gap-2">
-              <Bug className="size-4" />
-              Rapports
-            </TabsTrigger>
-            <TabsTrigger value="logs" className="flex items-center gap-2">
-              <FileText className="size-4" />
-              Logs
-            </TabsTrigger>
-          </TabsList>
+          <div className="px-8 pt-6">
+            <TabsList className="grid w-full grid-cols-5 gap-2 bg-slate-100 p-3 rounded-lg">
+              <TabsTrigger value="users" className="flex items-center gap-2 text-base px-4 py-3 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:font-bold rounded-md transition-all duration-200">
+                <Users className="size-6" />
+                <span>Utilisateurs</span>
+              </TabsTrigger>
+              <TabsTrigger value="password-reset" className="flex items-center gap-2 text-base px-4 py-3 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:font-bold rounded-md transition-all duration-200">
+                <Key className="size-6" />
+                <span>Réinit. MDP</span>
+              </TabsTrigger>
+              <TabsTrigger value="backups" className="flex items-center gap-2 text-base px-4 py-3 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:font-bold rounded-md transition-all duration-200">
+                <Database className="size-6" />
+                <span>Sauvegardes</span>
+              </TabsTrigger>
+              <TabsTrigger value="bug-reports" className="flex items-center gap-2 text-base px-4 py-3 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:font-bold rounded-md transition-all duration-200">
+                <Bug className="size-6" />
+                <span>Rapports</span>
+              </TabsTrigger>
+              <TabsTrigger value="logs" className="flex items-center gap-2 text-base px-4 py-3 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:font-bold rounded-md transition-all duration-200">
+                <FileText className="size-6" />
+                <span>Logs</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <div className="flex-1 overflow-auto mt-4">
+          <div className="flex-1 overflow-auto bg-gray-50 px-8 py-6">
             <TabsContent value="users" className="mt-0 h-full">
               <UserManagement currentUser={currentUser} onAddLog={onAddLog} onLogout={onLogout} />
             </TabsContent>
