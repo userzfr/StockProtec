@@ -77,11 +77,19 @@ export function OperationalEquipmentManager({
   };
 
   const getStatusBadge = (status?: 'ok' | 'defective' | 'missing', nextControlDate?: string) => {
-    // Si la date du prochain contrôle est dépassée, afficher un statut d'alerte
-    if (nextControlDate && new Date(nextControlDate) < new Date()) {
+    const now = new Date();
+    const nextControl = nextControlDate ? new Date(nextControlDate) : null;
+    const oneWeekFromNow = new Date(now);
+    oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
+
+    if (nextControl && nextControl < now) {
       return <Badge className="bg-red-600">Contrôle en retard</Badge>;
     }
-    
+
+    if (nextControl && nextControl >= now && nextControl <= oneWeekFromNow) {
+      return <Badge className="bg-orange-500">Contrôle à prévoir</Badge>;
+    }
+
     switch (status) {
       case 'ok':
         return <Badge className="bg-green-500">Opérationnel</Badge>;

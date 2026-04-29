@@ -34,15 +34,18 @@ export function UserManagement({ currentUser, onAddLog, onLogout }: UserManageme
     const loadUsers = async () => {
       try {
         const fetchedUsers = await usersApi.getAll();
-        setUsers(fetchedUsers.map((u: any) => ({
-          id: u.id,
-          username: u.nom,
-          password: '',
-          role: u.role,
-          createdAt: u.date_creation,
-          passwordResetRequested: !!u.password_reset_requested,
-          passwordResetDate: u.password_reset_date,
-        })));
+        setUsers(fetchedUsers
+          .filter((u: any) => u.id !== 'deleted-user' && u.nom !== 'Utilisateur supprimé')
+          .map((u: any) => ({
+            id: u.id,
+            username: u.nom,
+            password: '',
+            role: u.role,
+            createdAt: u.date_creation,
+            passwordResetRequested: !!u.password_reset_requested,
+            passwordResetDate: u.password_reset_date,
+            blocked: !!u.blocked,
+          })));
       } catch (error) {
         console.error('Erreur lors du chargement des utilisateurs :', error);
         toast.error('Impossible de charger les utilisateurs');
@@ -122,6 +125,24 @@ export function UserManagement({ currentUser, onAddLog, onLogout }: UserManageme
     } catch (error) {
       console.error('Erreur lors de la suppression de l\'utilisateur :', error);
       toast.error('Impossible de supprimer l\'utilisateur');
+    }
+  };
+
+  const handleToggleBlock = async (userId: string, blocked: boolean, username: string) => {
+    if (userId === currentUser.id) {
+      toast.error('Vous ne pouvez pas bloquer ou débloquer votre propre compte');
+      return;
+    }
+
+    try {
+      await usersApi.block(userId, blocked);
+      setUsers((prev) => prev.map((user) => user.id === userId ? { ...user, blocked } : user));
+      const action = blocked ? 'BLOQUE_USER' : 'UNBLOCK_USER';
+      onAddLog(action, currentUser.username, `${blocked ? 'Blocage' : 'Déblocage'} de l'utilisateur: ${username}`);
+      toast.success(`Utilisateur ${blocked ? 'bloqué' : 'débloqué'} avec succès`);
+    } catch (error) {
+      console.error('Erreur lors du changement du statut de blocage :', error);
+      toast.error('Impossible de modifier le statut de l\'utilisateur');
     }
   };
 
@@ -239,15 +260,22 @@ export function UserManagement({ currentUser, onAddLog, onLogout }: UserManageme
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
-                          {user.role === 'admin' ? 'ADMIN' : 'USER'}
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
+                            {user.role === 'admin' ? 'ADMIN' : 'USER'}
+                          </Badge>
+                          {user.blocked && (
+                            <Badge variant="warning" className="text-xs">
+                              Bloqué
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm text-slate-600">
                         {formatDate(user.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
+                        <div className="flex gap-2 justify-end items-center">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -256,6 +284,16 @@ export function UserManagement({ currentUser, onAddLog, onLogout }: UserManageme
                             className="hover:bg-blue-50 hover:text-blue-700"
                           >
                             <Eye className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleBlock(user.id, !user.blocked, user.username)}
+                            title={user.blocked ? 'Débloquer l\'utilisateur' : 'Bloquer l\'utilisateur'}
+                            className={user.blocked ? 'text-green-600 hover:text-green-700' : 'text-orange-600 hover:text-orange-700'}
+                            disabled={user.id === currentUser.id}
+                          >
+                            {user.blocked ? 'Débloquer' : 'Bloquer'}
                           </Button>
                           <Button
                             variant="ghost"

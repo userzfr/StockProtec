@@ -18,6 +18,8 @@ interface UserSession {
   logout_time?: string;
 }
 
+const SESSION_ACTIVE_THRESHOLD_MS = 11 * 60 * 1000;
+
 interface UserLogsViewerProps {
   userId: string;
 }
@@ -58,10 +60,20 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
     }
   };
 
+  const parseSessionDate = (dateString: string) => {
+    if (!dateString) return null;
+    const normalizedDate = dateString.trim().replace(' ', 'T');
+    const parsed = new Date(normalizedDate);
+    if (!isNaN(parsed.getTime())) return parsed;
+    return new Date(dateString);
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     try {
-      return new Date(dateString).toLocaleString('fr-FR', {
+      const date = parseSessionDate(dateString);
+      if (!date) return dateString;
+      return date.toLocaleString('fr-FR', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -76,10 +88,11 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
 
   const getDuration = (loginTime: string, logoutTime?: string) => {
     try {
-      const start = new Date(loginTime);
-      const end = logoutTime ? new Date(logoutTime) : new Date();
+      const start = parseSessionDate(loginTime);
+      const end = logoutTime ? parseSessionDate(logoutTime) : new Date();
+      if (!start || !end) return '-';
+
       const diffSeconds = Math.floor((end.getTime() - start.getTime()) / 1000);
-      
       if (diffSeconds < 60) return `${diffSeconds}s`;
       if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m`;
       if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h`;
@@ -89,7 +102,12 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
     }
   };
 
-  const isActiveSessjon = !sessions.some(s => !s.logout_time) ? false : true;
+  const isSessionActive = (session: UserSession) => {
+    if (session.logout_time) return false;
+    const lastActivity = parseSessionDate(session.last_activity_time);
+    if (!lastActivity) return false;
+    return Date.now() - lastActivity.getTime() <= SESSION_ACTIVE_THRESHOLD_MS;
+  };
 
   return (
     <div className="w-full space-y-4">
@@ -158,14 +176,14 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
                         {getDuration(session.login_time, session.logout_time)}
                       </TableCell>
                       <TableCell>
-                        {!session.logout_time ? (
+                        {isSessionActive(session) ? (
                           <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                             Actif
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="flex items-center gap-1 w-fit">
                             <LogOut className="size-3" />
-                            Fermé
+                            {session.logout_time ? 'Fermé' : 'Inactif'}
                           </Badge>
                         )}
                       </TableCell>
@@ -195,7 +213,7 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {sessions.filter(s => !s.logout_time).length}
+              {sessions.filter(isSessionActive).length}
             </div>
           </CardContent>
         </Card>

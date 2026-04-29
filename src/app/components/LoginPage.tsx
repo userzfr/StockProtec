@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { usersApi } from '@/app/services/api';
 
 interface LoginPageProps {
-  onLogin: (user: AuthUser) => void;
+  onLogin: (user: AuthUser, sessionId: string | null) => void;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
@@ -45,10 +45,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       };
 
       toast.success(`Bienvenue ${appUser.username} !`);
-      onLogin(appUser);
+      onLogin(appUser, user.sessionId || null);
     } catch (error) {
       console.error('Erreur de connexion:', error);
-      toast.error('Identifiants incorrects');
+      const errorMessage = error instanceof Error ? error.message : 'Identifiants incorrects';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

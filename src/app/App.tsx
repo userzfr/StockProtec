@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { LoginPage } from '@/app/components/LoginPage';
@@ -51,6 +51,7 @@ export interface OperationalEquipment {
   quantity: number;
   lastControlDate?: string;
   controlDate?: string;
+  nextControlDate?: string;
   status?: 'ok' | 'defective' | 'missing';
   notes?: string;
 }
@@ -141,6 +142,7 @@ export interface User {
   createdAt: string;
   passwordResetRequested?: boolean;
   passwordResetDate?: string;
+  blocked?: boolean;
 }
 
 export type AuthUser = Omit<User, 'password'>;
@@ -183,6 +185,7 @@ export interface BugReport {
 export interface AuthState {
   isAuthenticated: boolean;
   user: AuthUser | null;
+  sessionId: string | null;
   lastActivity: string | null;
 }
 
@@ -193,6 +196,7 @@ export default function App() {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     user: null,
+    sessionId: null,
     lastActivity: null,
   });
 
@@ -552,6 +556,7 @@ export default function App() {
               role: parsedAuth.user.role,
               createdAt: parsedAuth.user.createdAt,
             },
+            sessionId: parsedAuth.sessionId || null,
           };
           setAuthState(sanitizedAuthState);
         } else {
@@ -563,7 +568,7 @@ export default function App() {
     }
   }, []);
 
-  const handleLogin = async (user: AuthUser) => {
+  const handleLogin = async (user: AuthUser, sessionId: string | null = null) => {
     const sanitizedUser: AuthUser = {
       id: user.id,
       username: user.username,
@@ -574,6 +579,7 @@ export default function App() {
     const newAuthState: AuthState = {
       isAuthenticated: true,
       user: sanitizedUser,
+      sessionId,
       lastActivity: new Date().toISOString(),
     };
 
@@ -608,9 +614,22 @@ export default function App() {
         console.error('Erreur lors de l\'enregistrement du log de déconnexion:', error);
       }
     }
+
+    if (authState.sessionId) {
+      try {
+        await fetch(`/api/sessions/${authState.sessionId}/logout`, {
+          method: 'PUT',
+        });
+      } catch (error) {
+        console.error('Erreur lors de la déconnexion de la session:', error);
+      }
+    }
+
     localStorage.removeItem('authState');
-    setAuthState({ isAuthenticated: false, user: null, lastActivity: null });
-  }, [authState.user]);
+    setAuthState({ isAuthenticated: false, user: null, sessionId: null, lastActivity: null });
+  }, [authState.user, authState.sessionId]);
+
+  const lastHeartbeatRef = useRef<number>(0);
 
   const refreshActivity = useCallback(() => {
     setAuthState((prevState) => {
@@ -626,20 +645,39 @@ export default function App() {
     });
   }, []);
 
+  const sendSessionHeartbeat = async (sessionId: string) => {
+    try {
+      await fetch(`/api/sessions/${sessionId}/activity`, {
+        method: 'PUT',
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi du heartbeat de session :', error);
+    }
+  };
+
   useEffect(() => {
     if (!authState.isAuthenticated || !authState.lastActivity) {
       return;
     }
 
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
-    const handleUserActivity = () => refreshActivity();
+    const handleUserActivity = () => {
+      refreshActivity();
+      if (authState.sessionId) {
+        const now = Date.now();
+        if (now - lastHeartbeatRef.current > 30000) {
+          lastHeartbeatRef.current = now;
+          sendSessionHeartbeat(authState.sessionId);
+        }
+      }
+    };
 
     events.forEach((event) => window.addEventListener(event, handleUserActivity));
 
     return () => {
       events.forEach((event) => window.removeEventListener(event, handleUserActivity));
     };
-  }, [authState.isAuthenticated, authState.lastActivity, refreshActivity]);
+  }, [authState.isAuthenticated, authState.lastActivity, authState.sessionId, refreshActivity]);
 
   useEffect(() => {
     if (!authState.isAuthenticated || !authState.lastActivity) {
@@ -667,7 +705,12 @@ export default function App() {
 
     const validateSession = async () => {
       try {
-        await usersApi.getById(authState.user!.id);
+        const userData: any = await usersApi.getById(authState.user!.id);
+        if (userData.blocked) {
+          if (cancelled) return;
+          toast.error('Votre compte a été bloqué. Déconnexion en cours.');
+          handleLogout();
+        }
       } catch (error) {
         if (cancelled) return;
         const errorMessage = error instanceof Error ? error.message : String(error);

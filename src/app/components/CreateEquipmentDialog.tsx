@@ -46,6 +46,7 @@ export function CreateEquipmentDialog({ open, onOpenChange, onCreateEquipment }:
         type,
         quantity,
         controlDate: controlDate ? new Date(controlDate).toISOString().split('T')[0] : undefined,
+        lastControlDate: new Date().toISOString(),
         status,
         notes: notes.trim() || undefined,
       };

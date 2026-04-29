@@ -6,12 +6,13 @@ import { User } from '@/app/App';
 interface HeaderProps {
   currentUser: User;
   onOpenAdmin: () => void;
+  onOpenSettings: () => void;
   onLogout: () => void;
   onScanClick?: () => void;
   adminNotifications?: { bugReports: number; passwordResets: number };
 }
 
-export function Header({ currentUser, onOpenAdmin, onLogout, onScanClick, adminNotifications }: HeaderProps) {
+export function Header({ currentUser, onOpenAdmin, onOpenSettings, onLogout, onScanClick, adminNotifications }: HeaderProps) {
   return (
     <header className="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white shadow-lg">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -50,6 +51,15 @@ export function Header({ currentUser, onOpenAdmin, onLogout, onScanClick, adminN
                 Scanner
               </Button>
             )}
+
+            <Button
+              onClick={onOpenSettings}
+              variant="outline"
+              className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm"
+            >
+              <Settings className="size-4 mr-2" />
+              Paramètres
+            </Button>
 
             {currentUser.role === 'admin' && (
               <Button
