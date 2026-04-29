@@ -69,6 +69,14 @@ export const usersApi = {
   delete: (id: string) => apiRequest(`/users/${id}`, {
     method: 'DELETE',
   }),
+  changePassword: (id: string, oldPassword: string, newPassword: string) => apiRequest(`/users/${id}/password`, {
+    method: 'PUT',
+    body: JSON.stringify({ oldPassword, newPassword }),
+  }),
+  block: (id: string, blocked: boolean) => apiRequest(`/users/${id}/block`, {
+    method: 'PUT',
+    body: JSON.stringify({ blocked }),
+  }),
 };
 
 // ===============================
@@ -120,7 +128,9 @@ export const operationalEquipmentApi = {
     const payload = {
       ...equipment,
       qrCode: equipment.qrCode ?? equipment.barcode,
-      controlDate: equipment.controlDate ?? equipment.lastControlDate,
+      controlDate: equipment.controlDate ?? equipment.nextControlDate ?? equipment.lastControlDate,
+      lastControlDate: equipment.lastControlDate ?? new Date().toISOString(),
+      nextControlDate: equipment.controlDate ?? equipment.nextControlDate ?? null,
       expiryDate: equipment.expiryDate ?? equipment.peremptionDate,
     };
     return apiRequest('/operational-equipment', {
@@ -132,7 +142,9 @@ export const operationalEquipmentApi = {
     const payload = {
       ...equipment,
       qrCode: equipment.qrCode ?? equipment.barcode,
-      controlDate: equipment.controlDate ?? equipment.lastControlDate,
+      controlDate: equipment.controlDate ?? equipment.nextControlDate ?? equipment.lastControlDate,
+      lastControlDate: equipment.lastControlDate ?? new Date().toISOString(),
+      nextControlDate: equipment.controlDate ?? equipment.nextControlDate ?? null,
       expiryDate: equipment.expiryDate ?? equipment.peremptionDate,
     };
     return apiRequest(`/operational-equipment/${id}`, {

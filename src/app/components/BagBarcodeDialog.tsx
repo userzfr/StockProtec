@@ -79,16 +79,15 @@ export function BagBarcodeDialog({ bagBarcode, products, isOpen, onClose }: BagB
         </head>
         <body>
           ${printContent.innerHTML}
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
-            };
-          </script>
         </body>
       </html>
     `);
     printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
   };
 
   return (

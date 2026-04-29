@@ -23,7 +23,10 @@ export function initializeDatabase() {
       nom TEXT NOT NULL,
       password TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
-      date_creation TEXT DEFAULT (datetime('now'))
+      date_creation TEXT DEFAULT (datetime('now')),
+      password_reset_requested INTEGER DEFAULT 0,
+      password_reset_date TEXT,
+      blocked INTEGER DEFAULT 0
     )
   `);
 
@@ -68,19 +71,23 @@ export function initializeDatabase() {
   try {
     db.exec(`ALTER TABLE users ADD COLUMN password_reset_date TEXT`);
   } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0`);
+  } catch {}
 
   // Créer un utilisateur factice pour les utilisateurs supprimés
   try {
     const insertDeletedUser = db.prepare(`
-      INSERT OR IGNORE INTO users (id, nom, password, role, date_creation)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO users (id, nom, password, role, date_creation, blocked)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
     insertDeletedUser.run(
       'deleted-user',
       'Utilisateur supprimé',
       'deleted-password',
       'user',
-      new Date().toISOString()
+      new Date().toISOString(),
+      0
     );
   } catch (error) {
     console.error('Erreur lors de l\'initialisation de l\'utilisateur supprimé :', error);

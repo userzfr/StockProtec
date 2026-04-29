@@ -48,7 +48,7 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
     try {
       setIsLoading(true);
       
-      // Mettre à jour SANS changer lastControlDate (sauf si user le demande explicitement)
+      // Mettre à jour et enregistrer la dernière modification comme dernier contrôle
       const updatedEquipment: OperationalEquipment = {
         ...equipment,
         name: name.trim(),
@@ -57,7 +57,7 @@ export function EditEquipmentDialog({ open, onOpenChange, equipment, onUpdateEqu
         controlDate: nextControlDate ? new Date(nextControlDate).toISOString().split('T')[0] : undefined,
         status,
         notes: notes.trim() || undefined,
-        // Ne pas changer lastControlDate sauf si on effectue un contrôle
+        lastControlDate: new Date().toISOString(),
       };
 
       onUpdateEquipment(updatedEquipment);

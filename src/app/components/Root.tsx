@@ -5,12 +5,14 @@ import { Header } from '@/app/components/Header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Package, Pill, Settings } from 'lucide-react';
 import { AdminPanel } from '@/app/components/AdminPanel';
+import { UserSettingsDialog } from '@/app/components/UserSettingsDialog';
 import { BugReportButton } from '@/app/components/BugReportButton';
 import { bugReportsApi, usersApi, logsApi } from '@/app/services/api';
 
 export function Root() {
   const { currentUser, logout } = useAuth();
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState({ bugReports: 0, passwordResets: 0 });
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,6 +80,7 @@ export function Root() {
         currentUser={currentUser}
         onLogout={logout}
         onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         adminNotifications={adminNotifications}
       />
 
@@ -131,6 +134,13 @@ export function Root() {
           onLogout={logout}
         />
       )}
+
+      <UserSettingsDialog
+        userId={currentUser.id}
+        isOpen={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        onPasswordChanged={() => addLog('PASSWORD_CHANGE', currentUser.username, `Mot de passe modifié pour ${currentUser.username}`)}
+      />
 
       {/* Bug Report Button */}
       <BugReportButton currentUser={currentUser} onAddLog={addLog} />

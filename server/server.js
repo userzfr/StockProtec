@@ -98,7 +98,7 @@ scheduleWeeklyBackup();
 // Récupérer tous les utilisateurs
 app.get('/api/users', (req, res) => {
   try {
-    const users = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date FROM users').all();
+    const users = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date, blocked FROM users').all();
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -108,7 +108,7 @@ app.get('/api/users', (req, res) => {
 // Récupérer un utilisateur par son ID
 app.get('/api/users/:id', (req, res) => {
   try {
-    const user = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date FROM users WHERE id = ?').get(req.params.id);
+    const user = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date, blocked FROM users WHERE id = ?').get(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
@@ -127,10 +127,14 @@ app.post('/api/login', (req, res) => {
       return res.status(400).json({ error: 'Username et password requis' });
     }
 
-    const user = db.prepare('SELECT id, nom, role, password, date_creation, password_reset_requested, password_reset_date FROM users WHERE nom = ?').get(username);
+    const user = db.prepare('SELECT id, nom, role, password, date_creation, password_reset_requested, password_reset_date, blocked FROM users WHERE nom = ?').get(username);
     
     if (!user) {
       return res.status(401).json({ error: 'Identifiants incorrects' });
+    }
+
+    if (user.blocked) {
+      return res.status(403).json({ error: 'Compte bloqué. Contactez un administrateur.' });
     }
 
     const storedPassword = user.password;
@@ -155,9 +159,9 @@ app.post('/api/login', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `).run(sessionId, user.id, ipAddress, userAgent, uaInfo.browser, uaInfo.os, uaInfo.device_type);
 
-    // Retourner l'utilisateur sans le mot de passe
+    // Retourner l'utilisateur sans le mot de passe et inclure l'ID de session
     const { password: _, ...userWithoutPassword } = user;
-    res.json(userWithoutPassword);
+    res.json({ ...userWithoutPassword, sessionId });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -186,25 +190,63 @@ app.post('/api/users', (req, res) => {
 // Mettre à jour un utilisateur
 app.put('/api/users/:id', (req, res) => {
   try {
-    const { nom, password, role, passwordResetRequested, passwordResetDate } = req.body;
+    const { nom, password, role, passwordResetRequested, passwordResetDate, blocked } = req.body;
     const passwordResetFlag = passwordResetRequested ? 1 : 0;
     const resetDateValue = passwordResetDate || null;
+    const existingUser = db.prepare('SELECT blocked FROM users WHERE id = ?').get(req.params.id);
+    const blockedFlag = typeof blocked !== 'undefined' ? (blocked ? 1 : 0) : (existingUser ? existingUser.blocked : 0);
 
     if (!password) {
       const stmt = db.prepare(`
         UPDATE users
-        SET nom = ?, role = ?, password_reset_requested = ?, password_reset_date = ?
+        SET nom = ?, role = ?, password_reset_requested = ?, password_reset_date = ?, blocked = ?
         WHERE id = ?
       `);
-      stmt.run(nom, role, passwordResetFlag, resetDateValue, req.params.id);
+      stmt.run(nom, role, passwordResetFlag, resetDateValue, blockedFlag, req.params.id);
     } else {
       const hashedPassword = hashPassword(password);
       const stmt = db.prepare(`
         UPDATE users
-        SET nom = ?, password = ?, role = ?, password_reset_requested = ?, password_reset_date = ?
+        SET nom = ?, password = ?, role = ?, password_reset_requested = ?, password_reset_date = ?, blocked = ?
         WHERE id = ?
       `);
-      stmt.run(nom, hashedPassword, role, passwordResetFlag, resetDateValue, req.params.id);
+      stmt.run(nom, hashedPassword, role, passwordResetFlag, resetDateValue, blockedFlag, req.params.id);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Modifier le mot de passe d'un utilisateur en vérifiant l'ancien mot de passe
+app.put('/api/users/:id/password', (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const userId = req.params.id;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: 'Ancien et nouveau mot de passe requis' });
+    }
+
+    const user = db.prepare('SELECT password FROM users WHERE id = ?').get(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    const passwordIsValid = verifyPassword(oldPassword, user.password);
+    if (!passwordIsValid) {
+      return res.status(401).json({ error: 'L\'ancien mot de passe est incorrect' });
+    }
+
+    const hashedPassword = hashPassword(newPassword);
+    db.prepare('UPDATE users SET password = ?, password_reset_requested = 0, password_reset_date = NULL WHERE id = ?').run(hashedPassword, userId);
+
+    try {
+      db.prepare('INSERT INTO system_logs (id, user_id, action, details, timestamp) VALUES (?, ?, ?, ?, ?)')
+        .run(Date.now().toString(), userId, 'PASSWORD_CHANGE', 'Mot de passe modifié par l\'utilisateur', new Date().toISOString());
+    } catch (logError) {
+      console.error('Erreur lors de l\'enregistrement du log de changement de mot de passe :', logError);
     }
 
     res.json({ success: true });
@@ -235,6 +277,34 @@ app.delete('/api/users/:id', (req, res) => {
       // Supprimer l'utilisateur
       db.prepare('DELETE FROM users WHERE id = ?').run(userId);
     })();
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bloquer ou débloquer un utilisateur et forcer la déconnexion si nécessaire
+app.put('/api/users/:id/block', (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { blocked } = req.body;
+    const blockedFlag = blocked ? 1 : 0;
+
+    db.prepare('UPDATE users SET blocked = ? WHERE id = ?').run(blockedFlag, userId);
+
+    if (blockedFlag) {
+      db.prepare("UPDATE user_sessions SET logout_time = datetime('now') WHERE user_id = ? AND logout_time IS NULL").run(userId);
+    }
+
+    try {
+      const action = blockedFlag ? 'USER_BLOCKED' : 'USER_UNBLOCKED';
+      const details = blockedFlag ? 'Utilisateur bloqué' : 'Utilisateur débloqué';
+      db.prepare('INSERT INTO system_logs (id, user_id, action, details, timestamp) VALUES (?, ?, ?, ?, ?)')
+        .run(Date.now().toString(), userId, action, details, new Date().toISOString());
+    } catch (logError) {
+      console.error('Erreur lors de l\'enregistrement du log de blocage/déblocage :', logError);
+    }
 
     res.json({ success: true });
   } catch (error) {
@@ -692,8 +762,9 @@ app.get('/api/operational-equipment', (req, res) => {
       status: e.status,
       quantity: typeof e.quantity === 'number' ? e.quantity : 1,
       notes: e.notes || undefined,
-      controlDate: e.control_date,
-      lastControlDate: e.control_date,
+      controlDate: e.next_control_date ?? e.control_date,
+      lastControlDate: e.last_control_date ?? e.control_date,
+      nextControlDate: e.next_control_date ?? e.control_date,
       expiryDate: e.peremption_date
     }));
     res.json(formatted);
@@ -705,19 +776,34 @@ app.get('/api/operational-equipment', (req, res) => {
 // Créer un équipement opérationnel
 app.post('/api/operational-equipment', (req, res) => {
   try {
-    const { id, name, qrCode, barcode, type, category, status, quantity = 1, notes, controlDate, expiryDate } = req.body;
+    const { id, name, qrCode, barcode, type, category, status, quantity = 1, notes, controlDate, lastControlDate, nextControlDate, expiryDate } = req.body;
     const resolvedQrCode = qrCode ?? barcode;
     if (!resolvedQrCode) {
       return res.status(400).json({ error: 'qrCode or barcode is requis' });
     }
     const resolvedCategory = category ?? 'AUTRE';
     const resolvedStatus = status || 'ok';
+    const resolvedLastControlDate = lastControlDate || new Date().toISOString();
+    const resolvedNextControlDate = nextControlDate ?? controlDate ?? null;
     
     const stmt = db.prepare(`
-      INSERT INTO operational_equipment (id, name, qr_code, type, category, status, quantity, notes, control_date, peremption_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO operational_equipment (id, name, qr_code, type, category, status, quantity, notes, control_date, last_control_date, next_control_date, peremption_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, name, resolvedQrCode, type, resolvedCategory, resolvedStatus, quantity, notes || null, controlDate || null, expiryDate || null);
+    stmt.run(
+      id,
+      name,
+      resolvedQrCode,
+      type,
+      resolvedCategory,
+      resolvedStatus,
+      quantity,
+      notes || null,
+      controlDate || null,
+      resolvedLastControlDate,
+      resolvedNextControlDate,
+      expiryDate || null
+    );
     
     // Retourner l'équipement créé
     const created = db.prepare('SELECT * FROM operational_equipment WHERE id = ?').get(id);
@@ -731,8 +817,9 @@ app.post('/api/operational-equipment', (req, res) => {
       status: created.status,
       quantity: typeof created.quantity === 'number' ? created.quantity : 1,
       notes: created.notes || undefined,
-      controlDate: created.control_date,
-      lastControlDate: created.control_date,
+      controlDate: created.next_control_date ?? created.control_date,
+      lastControlDate: created.last_control_date ?? created.control_date,
+      nextControlDate: created.next_control_date ?? created.control_date,
       expiryDate: created.peremption_date
     };
     res.status(201).json(formatted);
@@ -745,20 +832,35 @@ app.post('/api/operational-equipment', (req, res) => {
 // Mettre à jour un équipement opérationnel
 app.put('/api/operational-equipment/:id', (req, res) => {
   try {
-    const { name, qrCode, barcode, type, category, status, quantity = 1, notes, controlDate, expiryDate } = req.body;
+    const { name, qrCode, barcode, type, category, status, quantity = 1, notes, controlDate, lastControlDate, nextControlDate, expiryDate } = req.body;
     const resolvedQrCode = qrCode ?? barcode;
     if (!resolvedQrCode) {
       return res.status(400).json({ error: 'qrCode or barcode is requis' });
     }
     const resolvedCategory = category ?? 'AUTRE';
     const resolvedStatus = status || 'ok';
+    const resolvedLastControlDate = lastControlDate || new Date().toISOString();
+    const resolvedNextControlDate = nextControlDate ?? controlDate ?? null;
     
     const stmt = db.prepare(`
       UPDATE operational_equipment
-      SET name = ?, qr_code = ?, type = ?, category = ?, status = ?, quantity = ?, notes = ?, control_date = ?, peremption_date = ?
+      SET name = ?, qr_code = ?, type = ?, category = ?, status = ?, quantity = ?, notes = ?, control_date = ?, last_control_date = ?, next_control_date = ?, peremption_date = ?
       WHERE id = ?
     `);
-    stmt.run(name, resolvedQrCode, type, resolvedCategory, resolvedStatus, quantity, notes || null, controlDate || null, expiryDate || null, req.params.id);
+    stmt.run(
+      name,
+      resolvedQrCode,
+      type,
+      resolvedCategory,
+      resolvedStatus,
+      quantity,
+      notes || null,
+      controlDate || null,
+      resolvedLastControlDate,
+      resolvedNextControlDate,
+      expiryDate || null,
+      req.params.id
+    );
     
     // Retourner l'équipement mis à jour
     const updated = db.prepare('SELECT * FROM operational_equipment WHERE id = ?').get(req.params.id);
@@ -772,8 +874,9 @@ app.put('/api/operational-equipment/:id', (req, res) => {
       status: updated.status,
       quantity: typeof updated.quantity === 'number' ? updated.quantity : 1,
       notes: updated.notes || undefined,
-      controlDate: updated.control_date,
-      lastControlDate: updated.control_date,
+      controlDate: updated.next_control_date ?? updated.control_date,
+      lastControlDate: updated.last_control_date ?? updated.control_date,
+      nextControlDate: updated.next_control_date ?? updated.control_date,
       expiryDate: updated.peremption_date
     };
     res.json(formatted);
