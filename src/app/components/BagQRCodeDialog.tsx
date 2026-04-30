@@ -58,13 +58,14 @@ export function BagQRCodeDialog({ open, onOpenChange, bag }: BagQRCodeDialogProp
 
         <div className="space-y-6">
           {/* QR Code */}
-          <div className="flex justify-center p-6 bg-white rounded-lg">
+          <div className="flex justify-center p-6 bg-white rounded-lg overflow-hidden">
             <QRCodeSVG
               id="qr-code-svg"
               value={bagUrl}
               size={256}
               level="H"
               includeMargin={true}
+              style={{ width: '100%', maxWidth: 256, height: 'auto' }}
             />
           </div>
 
