@@ -1,6 +1,6 @@
-# StockProtec v5.2.0 🏥
+# StockProtec v5.2.6 🏥
 
-[![Version](https://img.shields.io/badge/version-5.2.0-blue.svg)](https://github.com/userzfr/StockProtec/releases/tag/v5.2.0)
+[![Version](https://img.shields.io/badge/version-5.2.6-blue.svg)](https://github.com/userzfr/StockProtec/releases/tag/v5.2.6)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
 [![SQLite](https://img.shields.io/badge/SQLite-3.0+-orange.svg)](https://www.sqlite.org/)
@@ -202,7 +202,7 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 
 ---
 
-**StockProtec v5.2.0** - *Application de gestion de stock pour la Protection Civile* 🏥
+**StockProtec v5.2.6** - *Application de gestion de stock pour la Protection Civile* 🏥
 
 *Développé avec ❤️ par userz_fr*
 - [doc/INSTALLATION.md](doc/INSTALLATION.md)

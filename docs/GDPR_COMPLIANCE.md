@@ -379,7 +379,7 @@ Accessible via l'interface utilisateur ou sur demande à l'administrateur.
 
 ---
 
-*Conformité RGPD - StockProtec v5.2.0*
+*Conformité RGPD - StockProtec v5.2.6*
 *Document validé par audit interne - Avril 2026*
 
 **Pour toute question RGPD :** Contactez le DPO de votre organisation

@@ -56,6 +56,9 @@ log('[INFO] Frontend servi depuis le dossier \'dist\'');
 log('[INFO] Utilisez un reverse proxy (Nginx/IIS) pour exposer sur port 80/443');
 console.log();
 
+process.env.NODE_ENV = 'production';
+log('[INFO] NODE_ENV défini sur production');
+
 // Démarrage du serveur
 try {
   execSync('npm run server', { stdio: 'inherit' });

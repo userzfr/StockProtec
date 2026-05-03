@@ -418,7 +418,7 @@ Entrepôt Principal
 
 ---
 
-*Guide de gestion des stocks - StockProtec v5.2.0*
+*Guide de gestion des stocks - StockProtec v5.2.6*
 *Fonctionnalités validées - Avril 2026*
 
 **Pour formation complémentaire :** Contactez votre administrateur système

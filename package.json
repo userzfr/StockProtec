@@ -1,7 +1,7 @@
 {
   "name": "stockprotec",
   "description": "Application web de gestion de stock simple et efficace, conçue pour la Protection Civile.  \r Fonctionne en local avec enregistrement automatique des données sur le serveur dès qu'une modification est faite.",
-  "version": "5.2.4",
+  "version": "5.2.6",
   "type": "module",
   "scripts": {
     "build": "vite build",

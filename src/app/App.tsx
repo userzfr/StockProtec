@@ -539,7 +539,11 @@ export default function App() {
       }
     };
 
-    initializeData();
+    if (import.meta.env.DEV) {
+      initializeData();
+    } else {
+      console.log('ℹ️  Mode production : l\'initialisation automatique des données de démonstration est désactivée.');
+    }
 
     // Check if user is already logged in
     const savedAuth = localStorage.getItem('authState');
