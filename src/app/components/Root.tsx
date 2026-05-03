@@ -85,21 +85,17 @@ export function Root() {
       />
 
       <main className="container mx-auto p-4 md:p-6 lg:p-8">
-        <Tabs value={isPharmacyRoute ? 'pharmacy' : 'operational'} className="w-full">
+        <Tabs
+          value={isPharmacyRoute ? 'pharmacy' : 'operational'}
+          onValueChange={(value) => navigate(value === 'pharmacy' ? '/pharmacy' : '/')}
+          className="w-full"
+        >
           <TabsList className="grid w-full md:w-auto md:inline-grid grid-cols-2 mb-6">
-            <TabsTrigger
-              value="operational"
-              className="flex items-center gap-2"
-              onClick={() => navigate('/')}
-            >
+            <TabsTrigger value="operational" className="flex items-center gap-2">
               <Package className="w-4 h-4" />
               Matériel opérationnel
             </TabsTrigger>
-            <TabsTrigger
-              value="pharmacy"
-              className="flex items-center gap-2"
-              onClick={() => navigate('/pharmacy')}
-            >
+            <TabsTrigger value="pharmacy" className="flex items-center gap-2">
               <Pill className="w-4 h-4" />
               Stock pharmacie
             </TabsTrigger>

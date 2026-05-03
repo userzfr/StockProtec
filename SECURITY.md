@@ -1,6 +1,6 @@
 # 🔒 Politique de sécurité - StockProtec v5.2
 
-[![Version](https://img.shields.io/badge/version-5.2.0-blue.svg)](https://github.com/userzfr/StockProtec/releases/tag/v5.2.0)
+[![Version](https://img.shields.io/badge/version-5.2.6-blue.svg)](https://github.com/userzfr/StockProtec/releases/tag/v5.2.6)
 [![Security](https://img.shields.io/badge/Security-First-red.svg)](SECURITY.md)
 
 ## 📌 Versions supportées
@@ -190,7 +190,7 @@ Pour les vulnérabilités critiques affectant des systèmes en production :
 
 ---
 
-*Politique de sécurité - StockProtec v5.2.0*
+*Politique de sécurité - StockProtec v5.2.6*
 *Dernière mise à jour : Avril 2026*
 
 *Développé avec une approche "Security First" 🛡️*

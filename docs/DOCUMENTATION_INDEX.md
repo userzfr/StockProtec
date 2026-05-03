@@ -70,4 +70,4 @@ L'application sera accessible sur `http://localhost:5173`
 
 ---
 
-*Documentation générée pour StockProtec v5.2.0 - Avril 2026*
+*Documentation générée pour StockProtec v5.2.6 - Avril 2026*

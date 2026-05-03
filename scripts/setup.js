@@ -16,7 +16,8 @@ log('[SETUP] Installation des dépendances Node.js...');
 try {
   execSync('npm install', { stdio: 'inherit' });
   log('[SETUP] Dépendances installées avec succès.');
-  log('[INFO] Vous pouvez maintenant utiliser \'npm run prod\' pour démarrer l\'application.');
+  log('[INFO] Vous pouvez maintenant utiliser \'npm run build\' pour construire l\'application.');
+  log('[INFO] Vous pouvez ensuite utiliser \'npm run prod\' pour démarrer l\'application.');
 } catch (error) {
   log('[ERROR] Échec de l\'installation des dépendances.');
   process.exit(1);

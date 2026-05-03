@@ -55,7 +55,7 @@ backups/
   "compressedSize": 1843200,
   "checksum": "a1b2c3d4e5f6...",
   "encrypted": true,
-  "version": "5.2.0",
+  "version": "5.2.6",
   "includes": {
     "database": true,
     "files": true,
@@ -467,7 +467,7 @@ node server/backup.js rotate-keys
 
 ---
 
-*Guide du système de sauvegarde - StockProtec v5.2.0*
+*Guide du système de sauvegarde - StockProtec v5.2.6*
 *Sauvegarde testée et validée - Avril 2026*
 
 **Point de contact :** Administrateur système pour questions techniques

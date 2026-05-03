@@ -54,7 +54,10 @@ app.use(express.json());
 
 // Initialiser la base de données au démarrage
 initializeDatabase();
-seedDatabase();
+
+// Le seed de données d'exemple ne doit jamais être injecté automatiquement au démarrage.
+// Utiliser uniquement la commande dédiée : npm run seed
+console.log('ℹ️  Aucun seed automatique. Utilisez `npm run seed` si vous souhaitez recharger des données d\'exemple.');
 
 // Initialiser le système de sauvegarde automatique
 console.log('🔄 Initialisation du système de sauvegarde automatique...');
