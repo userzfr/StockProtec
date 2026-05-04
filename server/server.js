@@ -27,9 +27,23 @@ function parseUserAgent(userAgentString) {
   try {
     const parser = new UAParser(userAgentString);
     const result = parser.getResult();
+    
+    // Améliorer la détection de Windows 11 vs Windows 10
+    let osName = result.os.name || 'Unknown';
+    let osVersion = result.os.version || '';
+    
+    // Heuristique pour Windows 11: si Windows 10 est détecté mais que c'est un user agent sans WOW64
+    // et que c'est Chrome/Edge/Chrome récent, c'est probablement Windows 11
+    if (osName === 'Windows' && osVersion === '10' && !userAgentString.includes('WOW64')) {
+      // Windows 11 moderne n'a pas WOW64 dans le user agent
+      if (userAgentString.includes('Chrome') || userAgentString.includes('Edg')) {
+        osVersion = '11';
+      }
+    }
+    
     return {
       browser: `${result.browser.name || 'Unknown'} ${result.browser.version || ''}`.trim(),
-      os: `${result.os.name || 'Unknown'} ${result.os.version || ''}`.trim(),
+      os: `${osName} ${osVersion}`.trim(),
       device_type: result.device.type || 'desktop'
     };
   } catch (error) {
@@ -101,7 +115,7 @@ scheduleWeeklyBackup();
 // Récupérer tous les utilisateurs
 app.get('/api/users', (req, res) => {
   try {
-    const users = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date, blocked FROM users').all();
+    const users = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date, blocked, must_change_password FROM users').all();
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -111,7 +125,7 @@ app.get('/api/users', (req, res) => {
 // Récupérer un utilisateur par son ID
 app.get('/api/users/:id', (req, res) => {
   try {
-    const user = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date, blocked FROM users WHERE id = ?').get(req.params.id);
+    const user = db.prepare('SELECT id, nom, role, date_creation, password_reset_requested, password_reset_date, blocked, must_change_password FROM users WHERE id = ?').get(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
@@ -124,16 +138,20 @@ app.get('/api/users/:id', (req, res) => {
 // Login avec username et password
 app.post('/api/login', (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, deviceFingerprint } = req.body;
     
     if (!username || !password) {
       return res.status(400).json({ error: 'Username et password requis' });
     }
 
-    const user = db.prepare('SELECT id, nom, role, password, date_creation, password_reset_requested, password_reset_date, blocked FROM users WHERE nom = ?').get(username);
+    const user = db.prepare('SELECT id, nom, role, password, date_creation, password_reset_requested, password_reset_date, blocked, must_change_password FROM users WHERE nom = ?').get(username);
     
     if (!user) {
       return res.status(401).json({ error: 'Identifiants incorrects' });
+    }
+
+    if (user.id === 'deleted-user' || user.nom === 'Utilisateur supprimé') {
+      return res.status(403).json({ error: 'Compte non autorisé.' });
     }
 
     if (user.blocked) {
@@ -158,13 +176,13 @@ app.post('/api/login', (req, res) => {
     const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
     
     db.prepare(`
-      INSERT INTO user_sessions (id, user_id, ip_address, user_agent, browser, os, device_type, login_time, last_activity_time)
-      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).run(sessionId, user.id, ipAddress, userAgent, uaInfo.browser, uaInfo.os, uaInfo.device_type);
+      INSERT INTO user_sessions (id, user_id, ip_address, user_agent, browser, os, device_type, device_fingerprint, login_time, last_activity_time)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `).run(sessionId, user.id, ipAddress, userAgent, uaInfo.browser, uaInfo.os, uaInfo.device_type, deviceFingerprint || null);
 
     // Retourner l'utilisateur sans le mot de passe et inclure l'ID de session
     const { password: _, ...userWithoutPassword } = user;
-    res.json({ ...userWithoutPassword, sessionId });
+    res.json({ ...userWithoutPassword, sessionId, must_change_password: user.must_change_password });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -180,11 +198,11 @@ app.post('/api/users', (req, res) => {
 
     const hashedPassword = hashPassword(password);
     const stmt = db.prepare(`
-      INSERT INTO users (id, nom, password, role, password_reset_requested, password_reset_date)
-      VALUES (?, ?, ?, ?, 0, NULL)
+      INSERT INTO users (id, nom, password, role, password_reset_requested, password_reset_date, must_change_password)
+      VALUES (?, ?, ?, ?, 0, NULL, 1)
     `);
     stmt.run(id, nom, hashedPassword, role);
-    res.status(201).json({ id, nom, role });
+    res.status(201).json({ id, nom, role, must_change_password: 1 });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -193,27 +211,28 @@ app.post('/api/users', (req, res) => {
 // Mettre à jour un utilisateur
 app.put('/api/users/:id', (req, res) => {
   try {
-    const { nom, password, role, passwordResetRequested, passwordResetDate, blocked } = req.body;
+    const { nom, password, role, passwordResetRequested, passwordResetDate, blocked, must_change_password } = req.body;
     const passwordResetFlag = passwordResetRequested ? 1 : 0;
     const resetDateValue = passwordResetDate || null;
-    const existingUser = db.prepare('SELECT blocked FROM users WHERE id = ?').get(req.params.id);
+    const existingUser = db.prepare('SELECT blocked, must_change_password FROM users WHERE id = ?').get(req.params.id);
     const blockedFlag = typeof blocked !== 'undefined' ? (blocked ? 1 : 0) : (existingUser ? existingUser.blocked : 0);
+    const mustChangePasswordFlag = typeof must_change_password !== 'undefined' ? (must_change_password ? 1 : 0) : (existingUser ? existingUser.must_change_password : 0);
 
     if (!password) {
       const stmt = db.prepare(`
         UPDATE users
-        SET nom = ?, role = ?, password_reset_requested = ?, password_reset_date = ?, blocked = ?
+        SET nom = ?, role = ?, password_reset_requested = ?, password_reset_date = ?, blocked = ?, must_change_password = ?
         WHERE id = ?
       `);
-      stmt.run(nom, role, passwordResetFlag, resetDateValue, blockedFlag, req.params.id);
+      stmt.run(nom, role, passwordResetFlag, resetDateValue, blockedFlag, mustChangePasswordFlag, req.params.id);
     } else {
       const hashedPassword = hashPassword(password);
       const stmt = db.prepare(`
         UPDATE users
-        SET nom = ?, password = ?, role = ?, password_reset_requested = ?, password_reset_date = ?, blocked = ?
+        SET nom = ?, password = ?, role = ?, password_reset_requested = ?, password_reset_date = ?, blocked = ?, must_change_password = ?
         WHERE id = ?
       `);
-      stmt.run(nom, hashedPassword, role, passwordResetFlag, resetDateValue, blockedFlag, req.params.id);
+      stmt.run(nom, hashedPassword, role, passwordResetFlag, resetDateValue, blockedFlag, mustChangePasswordFlag, req.params.id);
     }
 
     res.json({ success: true });
@@ -243,7 +262,7 @@ app.put('/api/users/:id/password', (req, res) => {
     }
 
     const hashedPassword = hashPassword(newPassword);
-    db.prepare('UPDATE users SET password = ?, password_reset_requested = 0, password_reset_date = NULL WHERE id = ?').run(hashedPassword, userId);
+    db.prepare('UPDATE users SET password = ?, password_reset_requested = 0, password_reset_date = NULL, must_change_password = 0 WHERE id = ?').run(hashedPassword, userId);
 
     try {
       db.prepare('INSERT INTO system_logs (id, user_id, action, details, timestamp) VALUES (?, ?, ?, ?, ?)')
@@ -323,7 +342,7 @@ app.put('/api/users/:id/block', (req, res) => {
 app.get('/api/users/:userId/sessions', (req, res) => {
   try {
     const sessions = db.prepare(`
-      SELECT id, user_id, ip_address, user_agent, browser, os, device_type, login_time, last_activity_time, logout_time
+      SELECT id, user_id, ip_address, user_agent, browser, os, device_type, device_fingerprint, login_time, last_activity_time, logout_time
       FROM user_sessions
       WHERE user_id = ?
       ORDER BY login_time DESC
@@ -356,7 +375,7 @@ app.get('/api/sessions/recent', (req, res) => {
 app.get('/api/users/:userId/active-sessions', (req, res) => {
   try {
     const sessions = db.prepare(`
-      SELECT id, user_id, ip_address, user_agent, browser, os, device_type, login_time, last_activity_time
+      SELECT id, user_id, ip_address, user_agent, browser, os, device_type, device_fingerprint, login_time, last_activity_time
       FROM user_sessions
       WHERE user_id = ? AND logout_time IS NULL
       ORDER BY login_time DESC

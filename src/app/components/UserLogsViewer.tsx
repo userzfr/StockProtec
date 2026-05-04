@@ -13,12 +13,13 @@ interface UserSession {
   browser: string;
   os: string;
   device_type: string;
+  device_fingerprint?: string;
   login_time: string;
   last_activity_time: string;
   logout_time?: string;
 }
 
-const SESSION_ACTIVE_THRESHOLD_MS = 11 * 60 * 1000;
+const SESSION_ACTIVE_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes au lieu de 11
 
 interface UserLogsViewerProps {
   userId: string;
@@ -27,9 +28,17 @@ interface UserLogsViewerProps {
 export function UserLogsViewer({ userId }: UserLogsViewerProps) {
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   useEffect(() => {
     loadSessions();
+    
+    // Actualiser automatiquement toutes les 5 secondes
+    const interval = setInterval(() => {
+      loadSessions();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [userId]);
 
   const loadSessions = async () => {
@@ -41,6 +50,7 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
       }
       const data = await response.json();
       setSessions(data);
+      setLastRefresh(new Date());
     } catch (error) {
       console.error('Erreur lors du chargement des sessions :', error);
       toast.error('Échec du chargement des sessions');
@@ -86,10 +96,10 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
     }
   };
 
-  const getDuration = (loginTime: string, logoutTime?: string) => {
+  const getDuration = (loginTime: string, logoutTime?: string, lastActivityTime?: string) => {
     try {
       const start = parseSessionDate(loginTime);
-      const end = logoutTime ? parseSessionDate(logoutTime) : new Date();
+      const end = logoutTime ? parseSessionDate(logoutTime) : (lastActivityTime ? parseSessionDate(lastActivityTime) : new Date());
       if (!start || !end) return '-';
 
       const diffSeconds = Math.floor((end.getTime() - start.getTime()) / 1000);
@@ -117,15 +127,16 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
             <div>
               <CardTitle className="text-xl">Historique des sessions</CardTitle>
               <CardDescription>
-                Affiche les {sessions.length} dernières connexions
+                Affiche les {sessions.length} dernières connexions (actualisation automatique)
               </CardDescription>
             </div>
             <button
               onClick={loadSessions}
               disabled={isLoading}
               className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+              title="Actualiser maintenant"
             >
-              {isLoading ? 'Actualisation...' : 'Actualiser'}
+              {isLoading ? 'Actualisation...' : '⟲'}
             </button>
           </div>
         </CardHeader>
@@ -173,7 +184,7 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {getDuration(session.login_time, session.logout_time)}
+                        {getDuration(session.login_time, session.logout_time, session.last_activity_time)}
                       </TableCell>
                       <TableCell>
                         {isSessionActive(session) ? (
@@ -237,41 +248,47 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Set(sessions.map(s => s.device_type)).size}
+              {new Set(sessions.map(s => s.device_fingerprint || `${s.ip_address}-${s.user_agent}-${s.device_type}`)).size}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* IPs utilisées */}
+      {/* Appareils utilisés */}
       {sessions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Adresses IP utilisées</CardTitle>
+            <CardTitle className="text-sm">Appareils utilisés</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {Array.from(new Set(sessions.map(s => s.ip_address))).map((ip) => {
-                const count = sessions.filter(s => s.ip_address === ip).length;
-                const lastSession = sessions
-                  .filter(s => s.ip_address === ip)
-                  .sort((a, b) => new Date(b.login_time).getTime() - new Date(a.login_time).getTime())[0];
-                
-                return (
-                  <div
-                    key={ip}
-                    className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Globe className="size-4 text-blue-600" />
-                      <span className="font-mono text-sm">{ip}</span>
+              {Array.from(new Set(sessions.map(s => s.device_fingerprint || `${s.ip_address}-${s.user_agent}`)))
+                .map((deviceKey) => {
+                  const deviceSessions = sessions.filter(s => 
+                    (s.device_fingerprint || `${s.ip_address}-${s.user_agent}`) === deviceKey
+                  );
+                  const count = deviceSessions.length;
+                  const lastSession = deviceSessions
+                    .sort((a, b) => new Date(b.login_time).getTime() - new Date(a.login_time).getTime())[0];
+                  
+                  return (
+                    <div
+                      key={deviceKey}
+                      className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                    >
+                      <div className="flex items-center gap-2">
+                        {getDeviceIcon(lastSession.device_type)}
+                        <div className="text-sm">
+                          <div className="font-medium">{lastSession.os} - {lastSession.browser}</div>
+                          <div className="text-gray-600">{lastSession.ip_address}</div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {count} session{count > 1 ? 's' : ''} • Dernière: {formatDate(lastSession?.login_time || '')}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-600">
-                      {count} session{count > 1 ? 's' : ''} • Dernier accès: {formatDate(lastSession?.login_time || '')}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </CardContent>
         </Card>

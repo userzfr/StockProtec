@@ -81,6 +81,7 @@ export function PasswordResetManager({ onAddLog }: PasswordResetManagerProps) {
         role: updatedUser.role,
         passwordResetRequested: false,
         passwordResetDate: null,
+        must_change_password: true,
       });
 
       const updatedUsers = users.map(u => (u.id === selectedUser.id ? updatedUser : u));

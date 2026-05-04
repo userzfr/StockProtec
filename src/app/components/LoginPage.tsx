@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { usersApi } from '@/app/services/api';
 
 interface LoginPageProps {
-  onLogin: (user: AuthUser, sessionId: string | null) => void;
+  onLogin: (user: AuthUser, sessionId: string | null, mustChangePassword?: boolean) => void;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
@@ -33,8 +33,24 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setIsLoading(true);
 
     try {
+      // Générer le fingerprint de l'appareil
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx?.fillText('fingerprint', 10, 10);
+      const canvasFingerprint = canvas.toDataURL();
+
+      const deviceFingerprint = btoa(JSON.stringify({
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        platform: navigator.platform,
+        cookieEnabled: navigator.cookieEnabled,
+        screenResolution: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        canvas: canvasFingerprint,
+      }));
+
       // Utiliser l'API pour authentifier
-      const user = await usersApi.login(username, password);
+      const user = await usersApi.login(username, password, deviceFingerprint);
       
       // Convertir la réponse au format User attendu par l'app sans stocker le mot de passe
       const appUser: AuthUser = {
@@ -45,7 +61,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       };
 
       toast.success(`Bienvenue ${appUser.username} !`);
-      onLogin(appUser, user.sessionId || null);
+      onLogin(appUser, user.sessionId || null, user.must_change_password);
     } catch (error) {
       console.error('Erreur de connexion:', error);
       const errorMessage = error instanceof Error ? error.message : 'Identifiants incorrects';
@@ -132,13 +148,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Mot de passe</Label>
-                  <button
-                    type="button"
-                    onClick={() => setIsForgotPasswordOpen(true)}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    Mot de passe oublié ?
-                  </button>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
@@ -156,10 +165,19 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     type="button"
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsForgotPasswordOpen(true)}
+                  className="text-xs text-blue-600 hover:underline block mt-2"
+                  tabIndex={-1}
+                >
+                  Mot de passe oublié ?
+                </button>
               </div>
 
               <Button 

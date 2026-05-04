@@ -52,9 +52,9 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
 // ===============================
 
 export const usersApi = {
-  login: (username: string, password: string) => apiRequest('/login', {
+  login: (username: string, password: string, deviceFingerprint?: string) => apiRequest('/login', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, deviceFingerprint }),
   }),
   getAll: () => apiRequest('/users'),
   getById: (id: string) => apiRequest(`/users/${id}`),

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { LoginPage } from '@/app/components/LoginPage';
+import { ForcePasswordChange } from '@/app/components/ForcePasswordChange';
 import { Toaster } from '@/app/components/ui/sonner';
 import { toast } from 'sonner';
 import { AuthProvider } from '@/app/contexts/AuthContext';
@@ -187,10 +188,31 @@ export interface AuthState {
   user: AuthUser | null;
   sessionId: string | null;
   lastActivity: string | null;
+  mustChangePassword?: boolean;
 }
 
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
 const SESSION_VALIDATION_INTERVAL_MS = 5 * 60 * 1000;
+
+// Générer un fingerprint unique pour l'appareil
+function generateDeviceFingerprint(): string {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx?.fillText('fingerprint', 10, 10);
+  const canvasFingerprint = canvas.toDataURL();
+
+  const fingerprint = {
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    platform: navigator.platform,
+    cookieEnabled: navigator.cookieEnabled,
+    screenResolution: `${screen.width}x${screen.height}`,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    canvas: canvasFingerprint,
+  };
+
+  return btoa(JSON.stringify(fingerprint));
+}
 
 export default function App() {
   const [authState, setAuthState] = useState<AuthState>({
@@ -561,6 +583,7 @@ export default function App() {
               createdAt: parsedAuth.user.createdAt,
             },
             sessionId: parsedAuth.sessionId || null,
+            mustChangePassword: parsedAuth.mustChangePassword || false,
           };
           setAuthState(sanitizedAuthState);
         } else {
@@ -572,7 +595,7 @@ export default function App() {
     }
   }, []);
 
-  const handleLogin = async (user: AuthUser, sessionId: string | null = null) => {
+  const handleLogin = async (user: AuthUser, sessionId: string | null = null, mustChangePassword: boolean = false) => {
     const sanitizedUser: AuthUser = {
       id: user.id,
       username: user.username,
@@ -585,6 +608,7 @@ export default function App() {
       user: sanitizedUser,
       sessionId,
       lastActivity: new Date().toISOString(),
+      mustChangePassword,
     };
 
     setAuthState(newAuthState);
@@ -660,28 +684,39 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!authState.isAuthenticated || !authState.lastActivity) {
+    if (!authState.isAuthenticated || !authState.sessionId) {
       return;
     }
 
-    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
-    const handleUserActivity = () => {
-      refreshActivity();
-      if (authState.sessionId) {
-        const now = Date.now();
-        if (now - lastHeartbeatRef.current > 30000) {
-          lastHeartbeatRef.current = now;
-          sendSessionHeartbeat(authState.sessionId);
-        }
+    const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
+      // Empêcher la fermeture par défaut pour permettre l'appel API
+      event.preventDefault();
+      event.returnValue = '';
+
+      // Enregistrer le logout automatiquement
+      try {
+        await fetch(`/api/sessions/${authState.sessionId}/logout`, {
+          method: 'PUT',
+          keepalive: true, // Permet l'envoi même après la fermeture
+        });
+      } catch (error) {
+        console.error('Erreur lors du logout automatique:', error);
       }
     };
 
-    events.forEach((event) => window.addEventListener(event, handleUserActivity));
+    const handleUnload = () => {
+      // Fallback pour les navigateurs qui ne supportent pas keepalive
+      navigator.sendBeacon(`/api/sessions/${authState.sessionId}/logout`, '');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleUnload);
 
     return () => {
-      events.forEach((event) => window.removeEventListener(event, handleUserActivity));
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleUnload);
     };
-  }, [authState.isAuthenticated, authState.lastActivity, authState.sessionId, refreshActivity]);
+  }, [authState.isAuthenticated, authState.sessionId]);
 
   useEffect(() => {
     if (!authState.isAuthenticated || !authState.lastActivity) {
@@ -741,6 +776,21 @@ export default function App() {
     return (
       <>
         <LoginPage onLogin={handleLogin} />
+        <Toaster />
+      </>
+    );
+  }
+
+  if (authState.mustChangePassword && authState.user && authState.sessionId) {
+    return (
+      <>
+        <ForcePasswordChange 
+          user={authState.user} 
+          sessionId={authState.sessionId}
+          onPasswordChanged={() => {
+            setAuthState(prev => ({ ...prev, mustChangePassword: false }));
+          }}
+        />
         <Toaster />
       </>
     );

@@ -26,7 +26,8 @@ export function initializeDatabase() {
       date_creation TEXT DEFAULT (datetime('now')),
       password_reset_requested INTEGER DEFAULT 0,
       password_reset_date TEXT,
-      blocked INTEGER DEFAULT 0
+      blocked INTEGER DEFAULT 0,
+      must_change_password INTEGER DEFAULT 0
     )
   `);
 
@@ -74,20 +75,36 @@ export function initializeDatabase() {
   try {
     db.exec(`ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0`);
   } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0`);
+  } catch {}
 
   // Créer un utilisateur factice pour les utilisateurs supprimés
   try {
+    const deletedPasswordHash = hashPassword('deleted-password');
     const insertDeletedUser = db.prepare(`
-      INSERT OR IGNORE INTO users (id, nom, password, role, date_creation, blocked)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO users (id, nom, password, role, date_creation, blocked, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     insertDeletedUser.run(
       'deleted-user',
       'Utilisateur supprimé',
-      'deleted-password',
+      deletedPasswordHash,
       'user',
       new Date().toISOString(),
+      1,
       0
+    );
+
+    db.prepare(`
+      UPDATE users
+      SET nom = ?, password = ?, role = ?, blocked = 1, must_change_password = 0
+      WHERE id = ?
+    `).run(
+      'Utilisateur supprimé',
+      deletedPasswordHash,
+      'user',
+      'deleted-user'
     );
   } catch (error) {
     console.error('Erreur lors de l\'initialisation de l\'utilisateur supprimé :', error);
@@ -377,6 +394,7 @@ export function initializeDatabase() {
       browser TEXT,
       os TEXT,
       device_type TEXT,
+      device_fingerprint TEXT,
       login_time TEXT DEFAULT (datetime('now')),
       last_activity_time TEXT DEFAULT (datetime('now')),
       logout_time TEXT,
@@ -407,6 +425,11 @@ export function initializeDatabase() {
   }
   try {
     db.exec('ALTER TABLE user_sessions ADD COLUMN logout_time TEXT');
+  } catch (error) {
+    // ignore si la colonne existe déjà
+  }
+  try {
+    db.exec('ALTER TABLE user_sessions ADD COLUMN device_fingerprint TEXT');
   } catch (error) {
     // ignore si la colonne existe déjà
   }
