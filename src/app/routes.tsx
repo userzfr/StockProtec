@@ -5,11 +5,13 @@ import { PharmacyStockPage } from "./components/PharmacyStockPage";
 import { BagDetailPage } from "./components/BagDetailPage";
 import { LegalPage } from "./components/LegalPage";
 import { NotFound } from "./components/NotFound";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     Component: Root,
+    errorElement: <ErrorBoundary />,
     children: [
       { index: true, Component: OperationalMaterialPage },
       { path: "pharmacy", Component: PharmacyStockPage },

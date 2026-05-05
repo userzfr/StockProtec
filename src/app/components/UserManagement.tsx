@@ -3,7 +3,6 @@ import { Plus, Trash2, UserPlus, Shield, Eye } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/app/components/ui/table';
 import { Badge } from '@/app/components/ui/badge';
@@ -196,18 +195,15 @@ export function UserManagement({ currentUser, onAddLog, onLogout }: UserManageme
 
               <div className="space-y-2">
                 <Label htmlFor="new-role">Rôle *</Label>
-                <Select 
-                  value={newUser.role} 
-                  onValueChange={(value: 'admin' | 'user') => setNewUser({ ...newUser, role: value })}
+                <select
+                  id="new-role"
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'user' })}
+                  className="block w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm outline-none transition focus-visible:border-ring focus-visible:ring-ring/50"
                 >
-                  <SelectTrigger id="new-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">Utilisateur</SelectItem>
-                    <SelectItem value="admin">Administrateur</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <option value="user">Utilisateur</option>
+                  <option value="admin">Administrateur</option>
+                </select>
               </div>
             </div>
 
