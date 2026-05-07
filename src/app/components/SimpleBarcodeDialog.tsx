@@ -23,58 +23,69 @@ export function SimpleBarcodeDialog({ barcode, title, open, onOpenChange }: Simp
 
     const doc = printWindow.document;
     doc.open();
+    doc.write('<!DOCTYPE html><html><head></head><body></body></html>');
+    doc.close();
 
     const svg = printContent.querySelector('svg');
     const barcodeSvg = svg ? svg.cloneNode(true) : null;
-    const printHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Impression - ${title}</title>
-          <style>
-            @media print {
-              @page {
-                size: A4;
-                margin: 1cm;
-              }
-              body {
-                margin: 0;
-                padding: 20px;
-                font-family: Arial, sans-serif;
-              }
-              .barcode-section {
-                text-align: center;
-                padding: 20px;
-                border: 2px solid #000;
-              }
-              h1 {
-                font-size: 24px;
-                margin-bottom: 20px;
-              }
-              svg {
-                max-width: 100%;
-                height: auto;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="barcode-section">
-            <h1>${title}</h1>
-            ${barcodeSvg ? new XMLSerializer().serializeToString(barcodeSvg as Node) : ''}
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
-            };
-          </script>
-        </body>
-      </html>
-    `;
 
-    doc.write(printHtml);
-    doc.close();
+    const head = doc.head;
+    const body = doc.body;
+
+    const titleEl = doc.createElement('title');
+    titleEl.textContent = `Impression - ${title}`;
+    head.appendChild(titleEl);
+
+    const styleEl = doc.createElement('style');
+    styleEl.textContent = `
+      @media print {
+        @page {
+          size: A4;
+          margin: 1cm;
+        }
+        body {
+          margin: 0;
+          padding: 20px;
+          font-family: Arial, sans-serif;
+        }
+        .barcode-section {
+          text-align: center;
+          padding: 20px;
+          border: 2px solid #000;
+        }
+        h1 {
+          font-size: 24px;
+          margin-bottom: 20px;
+        }
+        svg {
+          max-width: 100%;
+          height: auto;
+        }
+      }
+    `;
+    head.appendChild(styleEl);
+
+    const section = doc.createElement('div');
+    section.className = 'barcode-section';
+
+    const heading = doc.createElement('h1');
+    heading.textContent = title;
+    section.appendChild(heading);
+
+    if (barcodeSvg) {
+      section.appendChild(barcodeSvg);
+    }
+
+    body.appendChild(section);
+
+    const scriptEl = doc.createElement('script');
+    scriptEl.textContent = `
+      window.onload = function() {
+        window.print();
+        window.close();
+      };
+    `;
+    body.appendChild(scriptEl);
   };
 
   return (
