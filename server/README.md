@@ -126,6 +126,13 @@ PORT=3001
 
 # Chemin de la base de données (défaut: ../stockprotec.db)
 DB_PATH=./stockprotec.db
+
+# Hôte d'écoute du serveur en production
+# Pour accepter les connexions depuis un reverse proxy sur une autre machine
+SERVER_HOST=0.0.0.0
+
+# Hôtes certifiés autorisés dans l'en-tête Host
+ALLOWED_HOSTS=proxy.example.com,api.example.com
 ```
 
 ### CORS

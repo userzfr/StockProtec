@@ -1542,7 +1542,11 @@ app.use(spaFallbackLimiter, (req, res) => {
 });
 
 // Démarrer le serveur
-const HOST = process.env.NODE_ENV === 'production' ? 'localhost' : '0.0.0.0';
+const DEFAULT_HOST = process.env.NODE_ENV === 'production' ? 'localhost' : '0.0.0.0';
+const HOST = process.env.SERVER_HOST || process.env.LISTEN_HOST || DEFAULT_HOST;
+const ALLOWED_HOSTS = process.env.ALLOWED_HOSTS
+  ? process.env.ALLOWED_HOSTS.split(',').map((host) => host.trim()).filter(Boolean)
+  : null;
 const LOG_DIR = path.join(__dirname, 'logs');
 const SERVER_LOG_PATH = path.join(LOG_DIR, 'server.log');
 
@@ -1557,6 +1561,16 @@ const appendServerLog = (message) => {
   fs.appendFileSync(SERVER_LOG_PATH, `${new Date().toISOString()} ${message}\n`);
 };
 
+if (ALLOWED_HOSTS && ALLOWED_HOSTS.length > 0) {
+  app.use((req, res, next) => {
+    const hostHeader = req.hostname || req.headers.host?.split(':')[0] || '';
+    if (!ALLOWED_HOSTS.includes(hostHeader)) {
+      return res.status(400).send('Host non autorisé');
+    }
+    next();
+  });
+}
+
 app.listen(PORT, HOST, () => {
   const startupMessage = `Serveur API démarré sur http://${HOST}:${PORT}`;
   console.log(`🚀 ${startupMessage}`);
@@ -1564,7 +1578,15 @@ app.listen(PORT, HOST, () => {
   appendServerLog(startupMessage);
 
   if (process.env.NODE_ENV === 'production') {
-    console.log(`🔒 Mode production : acces restreint a localhost`);
-    console.log(`🌐 Utilisez un reverse proxy pour exposer l'application`);
+    if (process.env.SERVER_HOST || process.env.LISTEN_HOST) {
+      console.log(`🔒 Hôte de production forcé sur : ${HOST}`);
+    } else {
+      console.log(`🔒 Mode production : accès restreint à localhost`);
+      console.log(`🌐 Pour exposer via reverse proxy, définissez SERVER_HOST=0.0.0.0 ou l'IP du serveur`);
+    }
+
+    if (ALLOWED_HOSTS && ALLOWED_HOSTS.length > 0) {
+      console.log(`✅ Hôtes autorisés : ${ALLOWED_HOSTS.join(', ')}`);
+    }
   }
 });
