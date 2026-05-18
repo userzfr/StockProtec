@@ -8,12 +8,18 @@ import { usersApi } from '@/app/services/api';
 
 interface UserSettingsDialogProps {
   userId: string;
+  user: {
+    username: string;
+    email?: string;
+    role: 'admin' | 'user';
+    createdAt: string;
+  };
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onPasswordChanged: () => void;
 }
 
-export function UserSettingsDialog({ userId, isOpen, onOpenChange, onPasswordChanged }: UserSettingsDialogProps) {
+export function UserSettingsDialog({ userId, user, isOpen, onOpenChange, onPasswordChanged }: UserSettingsDialogProps) {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -59,6 +65,37 @@ export function UserSettingsDialog({ userId, isOpen, onOpenChange, onPasswordCha
         </DialogHeader>
 
         <div id="settings-description" className="space-y-4 py-2">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-3">
+              <p className="text-sm font-semibold text-gray-900">Informations du compte</p>
+              <p className="text-xs text-gray-600">Détails de votre profil pour mieux vous repérer dans l'application.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg bg-white p-3 border border-gray-200">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Nom d'utilisateur</p>
+                <p className="mt-1 font-medium text-gray-900">{user.username}</p>
+              </div>
+              <div className="rounded-lg bg-white p-3 border border-gray-200">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Adresse email</p>
+                <p className="mt-1 font-medium text-gray-900">{user.email || 'Non renseignée'}</p>
+              </div>
+              <div className="rounded-lg bg-white p-3 border border-gray-200">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Rôle</p>
+                <p className="mt-1 font-medium text-gray-900 capitalize">{user.role}</p>
+              </div>
+              <div className="rounded-lg bg-white p-3 border border-gray-200">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Inscrit le</p>
+                <p className="mt-1 font-medium text-gray-900">
+                  {new Date(user.createdAt).toLocaleDateString('fr-FR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="old-password">Ancien mot de passe</Label>
             <Input

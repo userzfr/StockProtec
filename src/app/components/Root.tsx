@@ -131,12 +131,15 @@ export function Root() {
         />
       )}
 
-      <UserSettingsDialog
-        userId={currentUser.id}
-        isOpen={isSettingsOpen}
-        onOpenChange={setIsSettingsOpen}
-        onPasswordChanged={() => addLog('PASSWORD_CHANGE', currentUser.username, `Mot de passe modifié pour ${currentUser.username}`)}
-      />
+      {currentUser && (
+        <UserSettingsDialog
+          userId={currentUser.id}
+          user={currentUser}
+          isOpen={isSettingsOpen}
+          onOpenChange={setIsSettingsOpen}
+          onPasswordChanged={() => addLog('PASSWORD_CHANGE', currentUser.username, `Mot de passe modifié pour ${currentUser.username}`)}
+        />
+      )}
 
       {/* Bug Report Button */}
       <BugReportButton currentUser={currentUser} onAddLog={addLog} />

@@ -42,8 +42,6 @@ Thumbs.db
 *.db
 data/
 server/logs/
-backups/
-msi_nodejs/
 
 # Temporary files
 *.tmp

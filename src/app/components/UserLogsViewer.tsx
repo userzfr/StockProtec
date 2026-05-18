@@ -29,6 +29,7 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [showFullHistory, setShowFullHistory] = useState(false);
 
   useEffect(() => {
     loadSessions();
@@ -49,7 +50,12 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
         throw new Error('Impossible de charger les sessions');
       }
       const data = await response.json();
-      setSessions(data);
+      const sortedSessions = data.sort((a: UserSession, b: UserSession) => {
+        const dateA = parseSessionDate(a.login_time)?.getTime() ?? 0;
+        const dateB = parseSessionDate(b.login_time)?.getTime() ?? 0;
+        return dateB - dateA;
+      });
+      setSessions(sortedSessions);
       setLastRefresh(new Date());
     } catch (error) {
       console.error('Erreur lors du chargement des sessions :', error);
@@ -72,8 +78,9 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
 
   const parseSessionDate = (dateString: string) => {
     if (!dateString) return null;
-    const normalizedDate = dateString.trim().replace(' ', 'T');
-    const parsed = new Date(normalizedDate);
+    const normalized = dateString.trim().replace(' ', 'T');
+    const utcDate = normalized.endsWith('Z') ? normalized : `${normalized}Z`;
+    const parsed = new Date(utcDate);
     if (!isNaN(parsed.getTime())) return parsed;
     return new Date(dateString);
   };
@@ -114,30 +121,48 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
 
   const isSessionActive = (session: UserSession) => {
     if (session.logout_time) return false;
-    const lastActivity = parseSessionDate(session.last_activity_time);
+    const lastActivity = parseSessionDate(session.last_activity_time) || parseSessionDate(session.login_time);
     if (!lastActivity) return false;
     return Date.now() - lastActivity.getTime() <= SESSION_ACTIVE_THRESHOLD_MS;
   };
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const displayedSessions = showFullHistory
+    ? sessions
+    : sessions.filter((session) => {
+        const loginDate = parseSessionDate(session.login_time);
+        return loginDate ? loginDate >= sevenDaysAgo : false;
+      });
 
   return (
     <div className="w-full space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <CardTitle className="text-xl">Historique des sessions</CardTitle>
               <CardDescription>
-                Affiche les {sessions.length} dernières connexions (actualisation automatique)
+                {showFullHistory
+                  ? `Affiche tout l'historique des sessions (${sessions.length} sessions) - actualisation automatique`
+                  : `Affiche les ${displayedSessions.length} sessions des 7 derniers jours - actualisation automatique`}
               </CardDescription>
             </div>
-            <button
-              onClick={loadSessions}
-              disabled={isLoading}
-              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-              title="Actualiser maintenant"
-            >
-              {isLoading ? 'Actualisation...' : '⟲'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShowFullHistory((prev) => !prev)}
+                className="px-3 py-1 text-sm bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
+              >
+                {showFullHistory ? 'Voir 7 derniers jours' : 'Voir tout l’historique'}
+              </button>
+              <button
+                onClick={loadSessions}
+                disabled={isLoading}
+                className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                title="Actualiser maintenant"
+              >
+                {isLoading ? 'Actualisation...' : '⟲'}
+              </button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -160,7 +185,7 @@ export function UserLogsViewer({ userId }: UserLogsViewerProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sessions.map((session) => (
+                  {displayedSessions.map((session) => (
                     <TableRow key={session.id} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-center gap-2">
